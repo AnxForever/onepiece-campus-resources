@@ -11,9 +11,10 @@ interface StoreState {
   // 资料列表
   materials: Material[];
   setMaterials: (materials: Material[]) => void;
-  addMaterial: (material: Material) => void;
-  updateMaterial: (material: Material) => void;
-  deleteMaterial: (id: string) => void;
+  
+  // 当前选中的资料（用于编辑）
+  currentMaterial: Material | null;
+  setCurrentMaterial: (material: Material | null) => void;
   
   // 筛选状态
   filter: FilterState;
@@ -28,22 +29,31 @@ interface StoreState {
   searchKeyword: string;
   setSearchKeyword: (keyword: string) => void;
   
-  // 收藏列表
-  favorites: string[];
-  toggleFavorite: (id: string) => void;
-  
   // 模态框状态
-  isUploadModalOpen: boolean;
-  toggleUploadModal: (isOpen: boolean) => void;
+  showLoginModal: boolean;
+  toggleLoginModal: (show?: boolean) => void;
   
-  isEditModalOpen: boolean;
-  currentEditMaterial: Material | null;
-  toggleEditModal: (isOpen: boolean, material?: Material) => void;
+  showUploadModal: boolean;
+  toggleUploadModal: (show?: boolean) => void;
   
-  isPdfModalOpen: boolean;
-  currentPdfUrl: string | null;
-  togglePdfModal: (isOpen: boolean, pdfUrl?: string) => void;
+  showEditModal: boolean;
+  toggleEditModal: (show?: boolean) => void;
+  
+  showPdfModal: boolean;
+  togglePdfModal: (show?: boolean) => void;
+  
+  // 收藏功能
+  toggleFavorite: (materialId: string) => void;
 }
+
+// 默认筛选状态
+const defaultFilter: FilterState = {
+  materialType: 'all',
+  courseType: 'all',
+  programmingLanguage: 'all',
+  year: 'all',
+  semester: 'all'
+};
 
 // 创建全局状态管理
 export const useStore = create<StoreState>(
@@ -67,83 +77,108 @@ export const useStore = create<StoreState>(
       // 资料列表
       materials: [],
       setMaterials: (materials) => set({ materials }),
-      addMaterial: (material) => set((state) => ({
-        materials: [material, ...state.materials]
-      })),
-      updateMaterial: (material) => set((state) => ({
-        materials: state.materials.map((m) => 
-          m.id === material.id ? material : m
-        )
-      })),
-      deleteMaterial: (id) => set((state) => ({
-        materials: state.materials.filter((m) => m.id !== id)
-      })),
+      
+      // 当前选中的资料
+      currentMaterial: null,
+      setCurrentMaterial: (material) => set({ currentMaterial: material }),
       
       // 筛选状态
-      filter: {
-        materialType: 'all',
-        courseType: 'all',
-        programmingLanguage: 'all',
-        year: 'all',
-        semester: 'all'
-      },
+      filter: defaultFilter,
       setFilter: (filter) => set((state) => ({
         filter: { ...state.filter, ...filter }
       })),
-      resetFilter: () => set({
-        filter: {
-          materialType: 'all',
-          courseType: 'all',
-          programmingLanguage: 'all',
-          year: 'all',
-          semester: 'all'
-        },
+      resetFilter: () => set({ 
+        filter: defaultFilter,
         searchKeyword: ''
       }),
       
       // 排序选项
       sortOption: 'latest',
-      setSortOption: (sortOption) => set({ sortOption }),
+      setSortOption: (option) => set({ sortOption: option }),
       
       // 搜索关键词
       searchKeyword: '',
-      setSearchKeyword: (searchKeyword) => set({ searchKeyword }),
-      
-      // 收藏列表
-      favorites: [],
-      toggleFavorite: (id) => set((state) => {
-        const isFavorited = state.favorites.includes(id);
-        return {
-          favorites: isFavorited
-            ? state.favorites.filter((favId) => favId !== id)
-            : [...state.favorites, id]
-        };
-      }),
+      setSearchKeyword: (keyword) => set({ searchKeyword: keyword }),
       
       // 模态框状态
-      isUploadModalOpen: false,
-      toggleUploadModal: (isOpen) => set({ isUploadModalOpen: isOpen }),
+      showLoginModal: false,
+      toggleLoginModal: (show) => set((state) => ({
+        showLoginModal: show !== undefined ? show : !state.showLoginModal
+      })),
       
-      isEditModalOpen: false,
-      currentEditMaterial: null,
-      toggleEditModal: (isOpen, material = null) => set({ 
-        isEditModalOpen: isOpen,
-        currentEditMaterial: material
-      }),
+      showUploadModal: false,
+      toggleUploadModal: (show) => set((state) => ({
+        showUploadModal: show !== undefined ? show : !state.showUploadModal
+      })),
       
-      isPdfModalOpen: false,
-      currentPdfUrl: null,
-      togglePdfModal: (isOpen, pdfUrl = null) => set({
-        isPdfModalOpen: isOpen,
-        currentPdfUrl: pdfUrl
+      showEditModal: false,
+      toggleEditModal: (show) => set((state) => ({
+        showEditModal: show !== undefined ? show : !state.showEditModal
+      })),
+      
+      showPdfModal: false,
+      togglePdfModal: (show) => set((state) => ({
+        showPdfModal: show !== undefined ? show : !state.showPdfModal
+      })),
+      
+      // 收藏功能
+      toggleFavorite: (materialId) => set((state) => {
+        const updatedMaterials = state.materials.map(material => {
+          if (material.id === materialId) {
+            // 切换收藏状态
+            const isFavorited = !material.isFavorited;
+            
+            // 更新收藏数量
+            const favorites = isFavorited 
+              ? material.favorites + 1 
+              : Math.max(0, material.favorites - 1);
+            
+            return { ...material, isFavorited, favorites };
+          }
+          return material;
+        });
+        
+        return { materials: updatedMaterials };
       })
     }),
     {
-      name: 'campus-resources-storage',
+      name: 'onepiece-storage',
       partialize: (state) => ({
-        favorites: state.favorites,
-        admin: state.admin
-      })
+        // 只持久化管理员状态和收藏状态
+        admin: state.admin,
+        materials: state.materials.map(material => ({
+          id: material.id,
+          isFavorited: material.isFavorited
+        }))
+      }),
+      merge: (persistedState: any, currentState) => {
+        // 合并持久化的状态和当前状态
+        const mergedState = { ...currentState };
+        
+        // 合并管理员状态
+        if (persistedState.admin) {
+          mergedState.admin = persistedState.admin;
+        }
+        
+        // 合并收藏状态
+        if (persistedState.materials && currentState.materials.length > 0) {
+          const favoriteMap = new Map();
+          persistedState.materials.forEach((item: any) => {
+            if (item.id && item.isFavorited) {
+              favoriteMap.set(item.id, item.isFavorited);
+            }
+          });
+          
+          mergedState.materials = currentState.materials.map(material => {
+            if (favoriteMap.has(material.id)) {
+              return { ...material, isFavorited: favoriteMap.get(material.id) };
+            }
+            return material;
+          });
+        }
+        
+        return mergedState;
+      }
     }
   )
 );
