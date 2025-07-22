@@ -1,703 +1,893 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Filter, SlidersHorizontal, X, ArrowUpDown, Upload } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+  Box,
+  Container,
+  SimpleGrid,
+  Heading,
+  Text,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  HStack,
+  Select,
+  Button,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  IconButton,
+  Flex,
+  Spacer,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Textarea,
+  FormErrorMessage,
+  VStack,
+  Divider,
+  useToast,
+  Skeleton,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  CloseButton
+} from '@chakra-ui/react';
+import { SearchIcon, ChevronDownIcon, AddIcon } from '@chakra-ui/icons';
+import { FaSortAmountDown, FaSortAmountUp } from 'react-icons/fa';
 import { useStore } from '../store/useStore';
-import { getMaterials, getStatistics } from '../api';
-import Navbar from '../components/Navbar';
 import MaterialCard from '../components/MaterialCard';
-import { Material, FilterState, SortOption } from '../types';
-import { toast } from 'react-hot-toast';
+import { Material, MaterialFormData, CourseType, ProgrammingLanguage } from '../types';
+import { uploadMaterial, updateMaterial } from '../api';
 
 const Home: React.FC = () => {
-  const { 
-    materials, 
-    setMaterials,
+  // 状态管理
+  const {
+    materials,
+    fetchMaterials,
     admin,
     filter,
     setFilter,
     resetFilter,
-    sortOption,
-    setSortOption,
-    searchKeyword,
-    setSearchKeyword,
-    toggleUploadModal
+    sort,
+    setSort,
+    searchQuery,
+    setSearchQuery,
+    isUploadModalOpen,
+    setUploadModalOpen,
+    isEditModalOpen,
+    setEditModalOpen,
+    currentEditingMaterial,
+    setCurrentEditingMaterial
   } = useStore();
   
+  // 本地状态
   const [isLoading, setIsLoading] = useState(true);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isSortOpen, setIsSortOpen] = useState(false);
-  const [stats, setStats] = useState({
-    totalExams: 0,
-    totalProjects: 0,
-    totalMaterials: 0
+  const [formData, setFormData] = useState<MaterialFormData>({
+    title: '',
+    description: '',
+    materialType: 'exam',
+    courseType: 'dataStructure'
   });
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof MaterialFormData, string>>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
   
-  // 获取资料列表和统计数据
+  const toast = useToast();
+  
+  // 初始化加载资料
   useEffect(() => {
-    const fetchData = async () => {
+    const loadMaterials = async () => {
       setIsLoading(true);
-      
-      try {
-        // 获取资料列表
-        const materialsResponse = await getMaterials();
-        if (materialsResponse.success) {
-          setMaterials(materialsResponse.data);
-        } else {
-          toast.error(materialsResponse.message || '获取资料列表失败');
-        }
-        
-        // 获取统计数据
-        const statsResponse = await getStatistics();
-        if (statsResponse.success) {
-          setStats({
-            totalExams: statsResponse.data.totalExams,
-            totalProjects: statsResponse.data.totalProjects,
-            totalMaterials: statsResponse.data.totalMaterials
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        toast.error('获取数据失败，请稍后再试');
-      } finally {
-        setIsLoading(false);
-      }
+      await fetchMaterials();
+      setIsLoading(false);
     };
     
-    fetchData();
-  }, [setMaterials]);
+    loadMaterials();
+  }, [fetchMaterials]);
   
-  // 处理搜索输入变化
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchKeyword(e.target.value);
-  };
+  // 当编辑模态框打开时，初始化表单数据
+  useEffect(() => {
+    if (isEditModalOpen && currentEditingMaterial) {
+      setFormData({
+        title: currentEditingMaterial.title,
+        description: currentEditingMaterial.description,
+        materialType: currentEditingMaterial.materialType,
+        courseType: currentEditingMaterial.courseType,
+        teacher: currentEditingMaterial.teacher,
+        year: currentEditingMaterial.year,
+        semester: currentEditingMaterial.semester,
+        programmingLanguage: currentEditingMaterial.programmingLanguage,
+        repoUrl: currentEditingMaterial.repoUrl
+      });
+    }
+  }, [isEditModalOpen, currentEditingMaterial]);
   
-  // 处理筛选变化
-  const handleFilterChange = (key: keyof FilterState, value: any) => {
-    setFilter({ [key]: value });
-  };
+  // 当上传模态框打开时，重置表单数据
+  useEffect(() => {
+    if (isUploadModalOpen) {
+      setFormData({
+        title: '',
+        description: '',
+        materialType: 'exam',
+        courseType: 'dataStructure'
+      });
+      setFormErrors({});
+    }
+  }, [isUploadModalOpen]);
   
-  // 处理排序变化
-  const handleSortChange = (option: SortOption) => {
-    setSortOption(option);
-    setIsSortOpen(false);
-  };
-  
-  // 筛选和排序资料
-  const filteredAndSortedMaterials = React.useMemo(() => {
-    // 先筛选
-    let result = materials.filter(material => {
-      // 搜索关键词筛选
-      if (searchKeyword && !material.title.toLowerCase().includes(searchKeyword.toLowerCase()) && 
-          !material.description.toLowerCase().includes(searchKeyword.toLowerCase())) {
-        return false;
-      }
-      
-      // 资料类型筛选
-      if (filter.materialType !== 'all' && material.materialType !== filter.materialType) {
-        return false;
-      }
-      
-      // 课程类型筛选
-      if (filter.courseType !== 'all' && material.courseType !== filter.courseType) {
-        return false;
-      }
-      
-      // 编程语言筛选（仅对代码项目）
-      if (material.materialType === 'code' && filter.programmingLanguage && 
-          filter.programmingLanguage !== 'all' && material.programmingLanguage !== filter.programmingLanguage) {
-        return false;
-      }
-      
-      // 年份筛选
-      if (filter.year !== 'all' && material.year !== filter.year) {
-        return false;
-      }
-      
-      // 学期筛选
-      if (filter.semester !== 'all' && material.semester !== filter.semester) {
-        return false;
-      }
-      
-      return true;
-    });
+  // 处理表单输入变化
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
     
-    // 再排序
-    result.sort((a, b) => {
-      switch (sortOption) {
-        case 'latest':
-          return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
-        case 'oldest':
-          return new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
-        case 'mostViewed':
-          return b.views - a.views;
-        case 'mostDownloaded':
-          return b.downloads - a.downloads;
-        case 'mostFavorited':
-          return b.favorites - a.favorites;
-        default:
-          return 0;
-      }
-    });
-    
-    return result;
-  }, [materials, searchKeyword, filter, sortOption]);
+    // 清除对应的错误
+    if (formErrors[name as keyof MaterialFormData]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
   
-  // 动态粒子背景
-  const particles = Array.from({ length: 50 }).map((_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 3 + 1,
-    speed: Math.random() * 1 + 0.5
-  }));
+  // 验证表单
+  const validateForm = () => {
+    const errors: Partial<Record<keyof MaterialFormData, string>> = {};
+    let isValid = true;
+    
+    if (!formData.title.trim()) {
+      errors.title = '请输入标题';
+      isValid = false;
+    }
+    
+    if (!formData.description.trim()) {
+      errors.description = '请输入描述';
+      isValid = false;
+    }
+    
+    if (formData.materialType === 'code' && !formData.programmingLanguage) {
+      errors.programmingLanguage = '请选择编程语言';
+      isValid = false;
+    }
+    
+    if (formData.materialType === 'code' && !formData.repoUrl) {
+      errors.repoUrl = '请输入代码仓库链接';
+      isValid = false;
+    }
+    
+    setFormErrors(errors);
+    return isValid;
+  };
+  
+  // 处理上传资料
+  const handleUpload = async () => {
+    if (!validateForm()) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      const response = await uploadMaterial(formData);
+      
+      if (response.success) {
+        toast({
+          title: '上传成功',
+          description: '资料已成功上传',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+          position: 'top'
+        });
+        
+        // 关闭模态框
+        setUploadModalOpen(false);
+        
+        // 重新获取资料列表
+        await fetchMaterials();
+      } else {
+        toast({
+          title: '上传失败',
+          description: response.message,
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+          position: 'top'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: '上传失败',
+        description: '网络错误，请稍后重试',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+        position: 'top'
+      });
+      console.error('上传错误:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // 处理更新资料
+  const handleUpdate = async () => {
+    if (!validateForm() || !currentEditingMaterial) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      const response = await updateMaterial(currentEditingMaterial.id, formData);
+      
+      if (response.success) {
+        toast({
+          title: '更新成功',
+          description: '资料已成功更新',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+          position: 'top'
+        });
+        
+        // 关闭模态框
+        setEditModalOpen(false);
+        setCurrentEditingMaterial(null);
+        
+        // 重新获取资料列表
+        await fetchMaterials();
+      } else {
+        toast({
+          title: '更新失败',
+          description: response.message,
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+          position: 'top'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: '更新失败',
+        description: '网络错误，请稍后重试',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+        position: 'top'
+      });
+      console.error('更新错误:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // 关闭上传模态框
+  const handleCloseUploadModal = () => {
+    setUploadModalOpen(false);
+  };
+  
+  // 关闭编辑模态框
+  const handleCloseEditModal = () => {
+    setEditModalOpen(false);
+    setCurrentEditingMaterial(null);
+  };
+  
+  // 筛选资料
+  const filteredMaterials = materials.filter(material => {
+    // 搜索筛选
+    if (searchQuery && !material.title.toLowerCase().includes(searchQuery.toLowerCase()) && 
+        !material.description.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    
+    // 资料类型筛选
+    if (filter.materialType && material.materialType !== filter.materialType) {
+      return false;
+    }
+    
+    // 课程类型筛选
+    if (filter.courseType && material.courseType !== filter.courseType) {
+      return false;
+    }
+    
+    // 编程语言筛选
+    if (filter.programmingLanguage && material.programmingLanguage !== filter.programmingLanguage) {
+      return false;
+    }
+    
+    // 年份筛选
+    if (filter.year && material.year !== filter.year) {
+      return false;
+    }
+    
+    // 学期筛选
+    if (filter.semester && material.semester !== filter.semester) {
+      return false;
+    }
+    
+    // 教师筛选
+    if (filter.teacher && (!material.teacher || !material.teacher.includes(filter.teacher))) {
+      return false;
+    }
+    
+    return true;
+  });
+  
+  // 排序资料
+  const sortedMaterials = [...filteredMaterials].sort((a, b) => {
+    const { option, direction } = sort;
+    
+    if (direction === 'asc') {
+      return a[option] > b[option] ? 1 : -1;
+    } else {
+      return a[option] < b[option] ? 1 : -1;
+    }
+  });
+  
+  // 获取唯一的年份列表
+  const years = [...new Set(materials.map(material => material.year).filter(Boolean))];
+  
+  // 获取唯一的教师列表
+  const teachers = [...new Set(materials.map(material => material.teacher).filter(Boolean))];
   
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 动态背景 */}
-      <div className="fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-white to-blue-50 opacity-70"></div>
-        {particles.map((particle) => (
-          <div 
-            key={particle.id}
-            className="absolute rounded-full bg-gradient-to-r from-purple-400 to-indigo-500 opacity-20"
-            style={{
-              left: `${particle.x}%`,
-              top: `${particle.y}%`,
-              width: `${particle.size}px`,
-              height: `${particle.size}px`,
-              animation: `float ${particle.speed * 10}s ease-in-out infinite`,
-              animationDelay: `${Math.random() * 5}s`
-            }}
-          ></div>
-        ))}
-      </div>
+    <Container maxW="container.xl" py={8}>
+      {/* 管理员提示 */}
+      {admin.isAdminMode && showAlert && (
+        <Alert status="info" mb={4} borderRadius="md">
+          <AlertIcon />
+          <AlertTitle mr={2}>管理员模式已启用</AlertTitle>
+          <AlertDescription>您现在可以上传、编辑和删除资料。</AlertDescription>
+          <Spacer />
+          <CloseButton onClick={() => setShowAlert(false)} />
+        </Alert>
+      )}
       
-      {/* 导航栏 */}
-      <Navbar />
+      {/* 标题 */}
+      <Heading as="h1" size="xl" mb={6} textAlign="center">
+        校园资料共享平台
+      </Heading>
       
-      {/* 主内容 */}
-      <main className="pt-20 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl sm:tracking-tight lg:text-6xl mb-4">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
-              OnePiece
-            </span>
-            <span className="ml-2">校园资源共享平台</span>
-          </h1>
-          <p className="max-w-xl mx-auto text-lg text-gray-500">
-            汇集优质考试资料与代码项目，助力学习与成长
-          </p>
-        </div>
-        
-        {/* 统计卡片 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          {/* 试卷资料 */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-purple-100 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">试卷资料</p>
-                <h3 className="text-3xl font-bold text-gray-900">{stats.totalExams}</h3>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-              </div>
-            </div>
-          </div>
-          
-          {/* 代码项目 */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-blue-100 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">代码项目</p>
-                <h3 className="text-3xl font-bold text-gray-900">{stats.totalProjects}</h3>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-                </svg>
-              </div>
-            </div>
-          </div>
-          
-          {/* 总资源数 */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-indigo-100 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">总资源数</p>
-                <h3 className="text-3xl font-bold text-gray-900">{stats.totalMaterials}</h3>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* 特色标签 */}
-        <div className="flex flex-wrap justify-center gap-4 mb-12">
-          <div className="flex items-center bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200">
-            <span className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center mr-2">
-              <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </span>
-            <span className="text-sm font-medium text-gray-700">零后端成本</span>
-          </div>
-          <div className="flex items-center bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200">
-            <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-              </svg>
-            </span>
-            <span className="text-sm font-medium text-gray-700">快速上线</span>
-          </div>
-          <div className="flex items-center bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200">
-            <span className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center mr-2">
-              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-              </svg>
-            </span>
-            <span className="text-sm font-medium text-gray-700">社区驱动</span>
-          </div>
-          <div className="flex items-center bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200">
-            <span className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center mr-2">
-              <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-              </svg>
-            </span>
-            <span className="text-sm font-medium text-gray-700">AI智能</span>
-          </div>
-          <div className="flex items-center bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200">
-            <span className="w-6 h-6 rounded-full bg-yellow-100 flex items-center justify-center mr-2">
-              <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-              </svg>
-            </span>
-            <span className="text-sm font-medium text-gray-700">极速体验</span>
-          </div>
-        </div>
-        
-        {/* 搜索和筛选区域 */}
-        <div className="mb-8">
+      {/* 搜索和筛选栏 */}
+      <Box mb={6} p={4} borderWidth={1} borderRadius="md" boxShadow="sm">
+        <VStack spacing={4}>
           {/* 搜索框 */}
-          <div className="relative mb-4">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="搜索资料标题或描述..."
-              value={searchKeyword}
-              onChange={handleSearchChange}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+          <InputGroup>
+            <InputLeftElement pointerEvents="none">
+              <SearchIcon color="gray.400" />
+            </InputLeftElement>
+            <Input
+              placeholder="搜索资料..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
+          </InputGroup>
           
-          {/* 筛选和排序区域 */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2">
-              {/* 筛选按钮 */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className="flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
-                >
-                  <Filter className="h-4 w-4 mr-1.5" />
-                  筛选
-                </button>
-                
-                {/* 筛选下拉菜单 */}
-                {isFilterOpen && (
-                  <div className="absolute left-0 mt-2 w-72 bg-white rounded-lg shadow-lg z-10 p-4 border border-gray-200">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-sm font-semibold text-gray-700">筛选选项</h3>
-                      <div className="flex items-center">
-                        <button
-                          onClick={() => resetFilter()}
-                          className="text-xs text-purple-600 hover:text-purple-800 mr-2"
-                        >
-                          重置
-                        </button>
-                        <button
-                          onClick={() => setIsFilterOpen(false)}
-                          className="text-gray-500 hover:text-gray-700"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {/* 资料类型筛选 */}
-                    <div className="mb-3">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">资料类型</label>
-                      <select
-                        value={filter.materialType}
-                        onChange={(e) => handleFilterChange('materialType', e.target.value)}
-                        className="block w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        <option value="all">全部</option>
-                        <option value="exam">试卷资料</option>
-                        <option value="code">代码项目</option>
-                      </select>
-                    </div>
-                    
-                    {/* 课程类型筛选 */}
-                    <div className="mb-3">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">课程类型</label>
-                      <select
-                        value={filter.courseType}
-                        onChange={(e) => handleFilterChange('courseType', e.target.value)}
-                        className="block w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        <option value="all">全部</option>
-                        <option value="dataStructure">数据结构</option>
-                        <option value="algorithms">算法</option>
-                        <option value="computerNetworks">计算机网络</option>
-                        <option value="operatingSystems">操作系统</option>
-                        <option value="databaseSystems">数据库系统</option>
-                        <option value="compilers">编译原理</option>
-                        <option value="computerArchitecture">计算机组成原理</option>
-                        <option value="softwareEngineering">软件工程</option>
-                        <option value="webDevelopment">Web开发</option>
-                        <option value="mobileDevelopment">移动开发</option>
-                        <option value="artificialIntelligence">人工智能</option>
-                        <option value="machineLearning">机器学习</option>
-                        <option value="deepLearning">深度学习</option>
-                        <option value="computerVision">计算机视觉</option>
-                        <option value="naturalLanguageProcessing">自然语言处理</option>
-                        <option value="distributedSystems">分布式系统</option>
-                        <option value="cloudComputing">云计算</option>
-                        <option value="bigData">大数据</option>
-                        <option value="informationSecurity">信息安全</option>
-                        <option value="other">其他</option>
-                      </select>
-                    </div>
-                    
-                    {/* 编程语言筛选（仅当资料类型为代码项目时显示） */}
-                    {filter.materialType === 'code' && (
-                      <div className="mb-3">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">编程语言</label>
-                        <select
-                          value={filter.programmingLanguage || 'all'}
-                          onChange={(e) => handleFilterChange('programmingLanguage', e.target.value)}
-                          className="block w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                        >
-                          <option value="all">全部</option>
-                          <option value="c">C</option>
-                          <option value="cpp">C++</option>
-                          <option value="java">Java</option>
-                          <option value="python">Python</option>
-                          <option value="javascript">JavaScript</option>
-                          <option value="typescript">TypeScript</option>
-                          <option value="go">Go</option>
-                          <option value="rust">Rust</option>
-                          <option value="csharp">C#</option>
-                          <option value="php">PHP</option>
-                          <option value="ruby">Ruby</option>
-                          <option value="swift">Swift</option>
-                          <option value="kotlin">Kotlin</option>
-                          <option value="scala">Scala</option>
-                          <option value="r">R</option>
-                          <option value="matlab">MATLAB</option>
-                          <option value="assembly">Assembly</option>
-                          <option value="sql">SQL</option>
-                          <option value="other">其他</option>
-                        </select>
-                      </div>
-                    )}
-                    
-                    {/* 年份筛选 */}
-                    <div className="mb-3">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">年份</label>
-                      <select
-                        value={filter.year}
-                        onChange={(e) => handleFilterChange('year', e.target.value)}
-                        className="block w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        <option value="all">全部</option>
-                        <option value="2023">2023</option>
-                        <option value="2022">2022</option>
-                        <option value="2021">2021</option>
-                        <option value="2020">2020</option>
-                        <option value="2019">2019</option>
-                      </select>
-                    </div>
-                    
-                    {/* 学期筛选 */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">学期</label>
-                      <select
-                        value={filter.semester}
-                        onChange={(e) => handleFilterChange('semester', e.target.value)}
-                        className="block w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        <option value="all">全部</option>
-                        <option value="spring">春季学期</option>
-                        <option value="fall">秋季学期</option>
-                        <option value="summer">夏季学期</option>
-                        <option value="winter">冬季学期</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* 排序按钮 */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsSortOpen(!isSortOpen)}
-                  className="flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
-                >
-                  <ArrowUpDown className="h-4 w-4 mr-1.5" />
-                  排序
-                </button>
-                
-                {/* 排序下拉菜单 */}
-                {isSortOpen && (
-                  <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-10 py-1 border border-gray-200">
-                    <button
-                      onClick={() => handleSortChange('latest')}
-                      className={`w-full text-left px-4 py-2 text-sm ${sortOption === 'latest' ? 'text-purple-600 bg-purple-50' : 'text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      最新上传
-                    </button>
-                    <button
-                      onClick={() => handleSortChange('oldest')}
-                      className={`w-full text-left px-4 py-2 text-sm ${sortOption === 'oldest' ? 'text-purple-600 bg-purple-50' : 'text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      最早上传
-                    </button>
-                    <button
-                      onClick={() => handleSortChange('mostViewed')}
-                      className={`w-full text-left px-4 py-2 text-sm ${sortOption === 'mostViewed' ? 'text-purple-600 bg-purple-50' : 'text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      最多浏览
-                    </button>
-                    <button
-                      onClick={() => handleSortChange('mostDownloaded')}
-                      className={`w-full text-left px-4 py-2 text-sm ${sortOption === 'mostDownloaded' ? 'text-purple-600 bg-purple-50' : 'text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      最多下载
-                    </button>
-                    <button
-                      onClick={() => handleSortChange('mostFavorited')}
-                      className={`w-full text-left px-4 py-2 text-sm ${sortOption === 'mostFavorited' ? 'text-purple-600 bg-purple-50' : 'text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      最多收藏
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              {/* 活跃筛选标签 */}
-              {(filter.materialType !== 'all' || 
-                filter.courseType !== 'all' || 
-                (filter.programmingLanguage && filter.programmingLanguage !== 'all') || 
-                filter.year !== 'all' || 
-                filter.semester !== 'all' || 
-                searchKeyword) && (
-                <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
-                  {filter.materialType !== 'all' && (
-                    <div className="flex items-center bg-purple-50 px-2 py-1 rounded-full text-xs text-purple-700">
-                      {filter.materialType === 'exam' ? '试卷资料' : '代码项目'}
-                      <button 
-                        onClick={() => handleFilterChange('materialType', 'all')}
-                        className="ml-1 text-purple-500 hover:text-purple-700"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                  
-                  {filter.courseType !== 'all' && (
-                    <div className="flex items-center bg-blue-50 px-2 py-1 rounded-full text-xs text-blue-700">
-                      {{
-                        'dataStructure': '数据结构',
-                        'algorithms': '算法',
-                        'computerNetworks': '计算机网络',
-                        'operatingSystems': '操作系统',
-                        'databaseSystems': '数据库系统',
-                        'compilers': '编译原理',
-                        'computerArchitecture': '计算机组成原理',
-                        'softwareEngineering': '软件工程',
-                        'webDevelopment': 'Web开发',
-                        'mobileDevelopment': '移动开发',
-                        'artificialIntelligence': '人工智能',
-                        'machineLearning': '机器学习',
-                        'deepLearning': '深度学习',
-                        'computerVision': '计算机视觉',
-                        'naturalLanguageProcessing': '自然语言处理',
-                        'distributedSystems': '分布式系统',
-                        'cloudComputing': '云计算',
-                        'bigData': '大数据',
-                        'informationSecurity': '信息安全',
-                        'other': '其他'
-                      }[filter.courseType] || filter.courseType}
-                      <button 
-                        onClick={() => handleFilterChange('courseType', 'all')}
-                        className="ml-1 text-blue-500 hover:text-blue-700"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                  
-                  {filter.programmingLanguage && filter.programmingLanguage !== 'all' && (
-                    <div className="flex items-center bg-green-50 px-2 py-1 rounded-full text-xs text-green-700">
-                      {{
-                        'c': 'C',
-                        'cpp': 'C++',
-                        'java': 'Java',
-                        'python': 'Python',
-                        'javascript': 'JavaScript',
-                        'typescript': 'TypeScript',
-                        'go': 'Go',
-                        'rust': 'Rust',
-                        'csharp': 'C#',
-                        'php': 'PHP',
-                        'ruby': 'Ruby',
-                        'swift': 'Swift',
-                        'kotlin': 'Kotlin',
-                        'scala': 'Scala',
-                        'r': 'R',
-                        'matlab': 'MATLAB',
-                        'assembly': 'Assembly',
-                        'sql': 'SQL',
-                        'other': '其他'
-                      }[filter.programmingLanguage] || filter.programmingLanguage}
-                      <button 
-                        onClick={() => handleFilterChange('programmingLanguage', 'all')}
-                        className="ml-1 text-green-500 hover:text-green-700"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                  
-                  {filter.year !== 'all' && (
-                    <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-full text-xs text-yellow-700">
-                      {filter.year}年
-                      <button 
-                        onClick={() => handleFilterChange('year', 'all')}
-                        className="ml-1 text-yellow-500 hover:text-yellow-700"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                  
-                  {filter.semester !== 'all' && (
-                    <div className="flex items-center bg-red-50 px-2 py-1 rounded-full text-xs text-red-700">
-                      {{
-                        'spring': '春季学期',
-                        'fall': '秋季学期',
-                        'summer': '夏季学期',
-                        'winter': '冬季学期'
-                      }[filter.semester] || filter.semester}
-                      <button 
-                        onClick={() => handleFilterChange('semester', 'all')}
-                        className="ml-1 text-red-500 hover:text-red-700"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                  
-                  {searchKeyword && (
-                    <div className="flex items-center bg-indigo-50 px-2 py-1 rounded-full text-xs text-indigo-700">
-                      搜索: {searchKeyword}
-                      <button 
-                        onClick={() => setSearchKeyword('')}
-                        className="ml-1 text-indigo-500 hover:text-indigo-700"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                  
-                  <button 
-                    onClick={resetFilter}
-                    className="text-xs text-gray-500 hover:text-gray-700 underline"
-                  >
-                    清除全部
-                  </button>
-                </div>
-              )}
-            </div>
+          {/* 筛选选项 */}
+          <HStack spacing={4} width="100%" flexWrap="wrap">
+            {/* 资料类型筛选 */}
+            <Select
+              placeholder="资料类型"
+              value={filter.materialType || ''}
+              onChange={(e) => setFilter({ materialType: e.target.value || null })}
+            >
+              <option value="exam">考试</option>
+              <option value="code">代码</option>
+              <option value="note">笔记</option>
+              <option value="other">其他</option>
+            </Select>
+            
+            {/* 课程类型筛选 */}
+            <Select
+              placeholder="课程类型"
+              value={filter.courseType || ''}
+              onChange={(e) => setFilter({ courseType: e.target.value || null })}
+            >
+              <option value="dataStructure">数据结构</option>
+              <option value="algorithms">算法</option>
+              <option value="computerNetworks">计算机网络</option>
+              <option value="operatingSystems">操作系统</option>
+              <option value="databaseSystems">数据库系统</option>
+              <option value="compilers">编译原理</option>
+              <option value="computerArchitecture">计算机体系结构</option>
+              <option value="softwareEngineering">软件工程</option>
+              <option value="artificialIntelligence">人工智能</option>
+              <option value="machineLearning">机器学习</option>
+              <option value="distributedSystems">分布式系统</option>
+              <option value="computerGraphics">计算机图形学</option>
+              <option value="other">其他</option>
+            </Select>
+            
+            {/* 编程语言筛选（仅当资料类型为代码时显示） */}
+            {filter.materialType === 'code' && (
+              <Select
+                placeholder="编程语言"
+                value={filter.programmingLanguage || ''}
+                onChange={(e) => setFilter({ programmingLanguage: e.target.value || null })}
+              >
+                <option value="c">C</option>
+                <option value="cpp">C++</option>
+                <option value="java">Java</option>
+                <option value="python">Python</option>
+                <option value="javascript">JavaScript</option>
+                <option value="typescript">TypeScript</option>
+                <option value="go">Go</option>
+                <option value="rust">Rust</option>
+                <option value="other">其他</option>
+              </Select>
+            )}
+            
+            {/* 年份筛选 */}
+            <Select
+              placeholder="年份"
+              value={filter.year || ''}
+              onChange={(e) => setFilter({ year: e.target.value || null })}
+            >
+              {years.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </Select>
+            
+            {/* 学期筛选 */}
+            <Select
+              placeholder="学期"
+              value={filter.semester || ''}
+              onChange={(e) => setFilter({ semester: e.target.value || null })}
+            >
+              <option value="spring">春季</option>
+              <option value="fall">秋季</option>
+              <option value="summer">夏季</option>
+              <option value="winter">冬季</option>
+            </Select>
+            
+            {/* 教师筛选 */}
+            <Select
+              placeholder="教师"
+              value={filter.teacher || ''}
+              onChange={(e) => setFilter({ teacher: e.target.value || null })}
+            >
+              {teachers.map(teacher => (
+                <option key={teacher} value={teacher}>{teacher}</option>
+              ))}
+            </Select>
+          </HStack>
+          
+          {/* 操作按钮 */}
+          <HStack spacing={4} width="100%" justifyContent="space-between">
+            {/* 重置筛选按钮 */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                resetFilter();
+                setSearchQuery('');
+              }}
+            >
+              重置筛选
+            </Button>
+            
+            {/* 排序选项 */}
+            <Menu>
+              <MenuButton as={Button} rightIcon={<ChevronDownIcon />}>
+                排序: {getSortOptionName(sort.option)}
+                {sort.direction === 'asc' ? <FaSortAmountUp style={{ display: 'inline', marginLeft: '5px' }} /> : <FaSortAmountDown style={{ display: 'inline', marginLeft: '5px' }} />}
+              </MenuButton>
+              <MenuList>
+                <MenuItem onClick={() => setSort('uploadDate', sort.option === 'uploadDate' ? (sort.direction === 'desc' ? 'asc' : 'desc') : 'desc')}>
+                  上传日期 {sort.option === 'uploadDate' && (sort.direction === 'desc' ? '↓' : '↑')}
+                </MenuItem>
+                <MenuItem onClick={() => setSort('views', sort.option === 'views' ? (sort.direction === 'desc' ? 'asc' : 'desc') : 'desc')}>
+                  浏览量 {sort.option === 'views' && (sort.direction === 'desc' ? '↓' : '↑')}
+                </MenuItem>
+                <MenuItem onClick={() => setSort('downloads', sort.option === 'downloads' ? (sort.direction === 'desc' ? 'asc' : 'desc') : 'desc')}>
+                  下载量 {sort.option === 'downloads' && (sort.direction === 'desc' ? '↓' : '↑')}
+                </MenuItem>
+                <MenuItem onClick={() => setSort('favorites', sort.option === 'favorites' ? (sort.direction === 'desc' ? 'asc' : 'desc') : 'desc')}>
+                  收藏数 {sort.option === 'favorites' && (sort.direction === 'desc' ? '↓' : '↑')}
+                </MenuItem>
+                <MenuItem onClick={() => setSort('rating', sort.option === 'rating' ? (sort.direction === 'desc' ? 'asc' : 'desc') : 'desc')}>
+                  评分 {sort.option === 'rating' && (sort.direction === 'desc' ? '↓' : '↑')}
+                </MenuItem>
+              </MenuList>
+            </Menu>
             
             {/* 管理员上传按钮 */}
             {admin.isAdminMode && (
-              <button
-                onClick={() => toggleUploadModal(true)}
-                className="flex items-center px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors shadow-sm"
+              <Button
+                leftIcon={<AddIcon />}
+                colorScheme="blue"
+                onClick={() => setUploadModalOpen(true)}
               >
-                <Upload className="h-4 w-4 mr-1.5" />
-                上传资源
-              </button>
+                上传资料
+              </Button>
             )}
-          </div>
-        </div>
-        
-        {/* 资料网格 */}
-        <div>
-          {/* 精选资源标题 */}
-          <h2 className="text-xl font-bold text-gray-900 mb-6">
-            {filteredAndSortedMaterials.length > 0 ? (
-              <>
-                {searchKeyword ? `搜索结果` : `精选资源`}
-                <span className="text-sm font-normal text-gray-500 ml-2">
-                  共 {filteredAndSortedMaterials.length} 项
-                </span>
-              </>
-            ) : (
-              <>
-                {isLoading ? (
-                  <div className="flex items-center">
-                    <div className="w-5 h-5 border-2 border-t-transparent border-purple-500 rounded-full animate-spin mr-2"></div>
-                    加载中...
-                  </div>
-                ) : (
-                  <>未找到符合条件的资源</>
-                )}
-              </>
-            )}
-          </h2>
-          
-          {/* 资料网格容器 */}
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 animate-pulse">
-                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-full mb-4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-                  <div className="flex justify-between mt-6">
-                    <div className="h-8 bg-gray-200 rounded w-2/5"></div>
-                    <div className="h-8 bg-gray-200 rounded w-2/5"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAndSortedMaterials.map((material) => (
-                <MaterialCard key={material.id} material={material} />
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
+          </HStack>
+        </VStack>
+      </Box>
       
-      {/* 模态框（上传、编辑、PDF） */}
-      {/* 这些模态框组件会在其他文件中定义，并通过全局状态控制显示 */}
-    </div>
+      {/* 资料列表 */}
+      {isLoading ? (
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} height="300px" borderRadius="md" />
+          ))}
+        </SimpleGrid>
+      ) : sortedMaterials.length > 0 ? (
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+          {sortedMaterials.map(material => (
+            <MaterialCard key={material.id} material={material} />
+          ))}
+        </SimpleGrid>
+      ) : (
+        <Box textAlign="center" py={10}>
+          <Heading as="h3" size="lg" mb={3}>
+            没有找到资料
+          </Heading>
+          <Text color="gray.500">
+            尝试调整筛选条件或搜索关键词
+          </Text>
+        </Box>
+      )}
+      
+      {/* 上传资料模态框 */}
+      <Modal isOpen={isUploadModalOpen} onClose={handleCloseUploadModal} size="xl">
+        <ModalOverlay backdropFilter="blur(5px)" />
+        <ModalContent>
+          <ModalHeader>上传资料</ModalHeader>
+          <ModalCloseButton />
+          
+          <ModalBody>
+            <VStack spacing={4}>
+              {/* 标题 */}
+              <FormControl isInvalid={!!formErrors.title}>
+                <FormLabel>标题</FormLabel>
+                <Input
+                  name="title"
+                  placeholder="请输入资料标题"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                />
+                <FormErrorMessage>{formErrors.title}</FormErrorMessage>
+              </FormControl>
+              
+              {/* 描述 */}
+              <FormControl isInvalid={!!formErrors.description}>
+                <FormLabel>描述</FormLabel>
+                <Textarea
+                  name="description"
+                  placeholder="请输入资料描述"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows={4}
+                />
+                <FormErrorMessage>{formErrors.description}</FormErrorMessage>
+              </FormControl>
+              
+              {/* 资料类型 */}
+              <FormControl>
+                <FormLabel>资料类型</FormLabel>
+                <Select
+                  name="materialType"
+                  value={formData.materialType}
+                  onChange={handleInputChange}
+                >
+                  <option value="exam">考试</option>
+                  <option value="code">代码</option>
+                  <option value="note">笔记</option>
+                  <option value="other">其他</option>
+                </Select>
+              </FormControl>
+              
+              {/* 课程类型 */}
+              <FormControl>
+                <FormLabel>课程类型</FormLabel>
+                <Select
+                  name="courseType"
+                  value={formData.courseType}
+                  onChange={handleInputChange}
+                >
+                  <option value="dataStructure">数据结构</option>
+                  <option value="algorithms">算法</option>
+                  <option value="computerNetworks">计算机网络</option>
+                  <option value="operatingSystems">操作系统</option>
+                  <option value="databaseSystems">数据库系统</option>
+                  <option value="compilers">编译原理</option>
+                  <option value="computerArchitecture">计算机体系结构</option>
+                  <option value="softwareEngineering">软件工程</option>
+                  <option value="artificialIntelligence">人工智能</option>
+                  <option value="machineLearning">机器学习</option>
+                  <option value="distributedSystems">分布式系统</option>
+                  <option value="computerGraphics">计算机图形学</option>
+                  <option value="other">其他</option>
+                </Select>
+              </FormControl>
+              
+              {/* 教师 */}
+              <FormControl>
+                <FormLabel>教师</FormLabel>
+                <Input
+                  name="teacher"
+                  placeholder="请输入教师姓名（可选）"
+                  value={formData.teacher || ''}
+                  onChange={handleInputChange}
+                />
+              </FormControl>
+              
+              {/* 年份 */}
+              <FormControl>
+                <FormLabel>年份</FormLabel>
+                <Input
+                  name="year"
+                  placeholder="请输入年份（可选）"
+                  value={formData.year || ''}
+                  onChange={handleInputChange}
+                />
+              </FormControl>
+              
+              {/* 学期 */}
+              <FormControl>
+                <FormLabel>学期</FormLabel>
+                <Select
+                  name="semester"
+                  value={formData.semester || ''}
+                  onChange={handleInputChange}
+                >
+                  <option value="">请选择（可选）</option>
+                  <option value="spring">春季</option>
+                  <option value="fall">秋季</option>
+                  <option value="summer">夏季</option>
+                  <option value="winter">冬季</option>
+                </Select>
+              </FormControl>
+              
+              {/* 编程语言（仅当资料类型为代码时显示） */}
+              {formData.materialType === 'code' && (
+                <FormControl isInvalid={!!formErrors.programmingLanguage}>
+                  <FormLabel>编程语言</FormLabel>
+                  <Select
+                    name="programmingLanguage"
+                    value={formData.programmingLanguage || ''}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">请选择</option>
+                    <option value="c">C</option>
+                    <option value="cpp">C++</option>
+                    <option value="java">Java</option>
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="typescript">TypeScript</option>
+                    <option value="go">Go</option>
+                    <option value="rust">Rust</option>
+                    <option value="other">其他</option>
+                  </Select>
+                  <FormErrorMessage>{formErrors.programmingLanguage}</FormErrorMessage>
+                </FormControl>
+              )}
+              
+              {/* 代码仓库链接（仅当资料类型为代码时显示） */}
+              {formData.materialType === 'code' && (
+                <FormControl isInvalid={!!formErrors.repoUrl}>
+                  <FormLabel>代码仓库链接</FormLabel>
+                  <Input
+                    name="repoUrl"
+                    placeholder="请输入代码仓库链接"
+                    value={formData.repoUrl || ''}
+                    onChange={handleInputChange}
+                  />
+                  <FormErrorMessage>{formErrors.repoUrl}</FormErrorMessage>
+                </FormControl>
+              )}
+            </VStack>
+          </ModalBody>
+          
+          <ModalFooter>
+            <Button variant="outline" mr={3} onClick={handleCloseUploadModal}>
+              取消
+            </Button>
+            <Button
+              colorScheme="blue"
+              onClick={handleUpload}
+              isLoading={isSubmitting}
+              loadingText="上传中"
+            >
+              上传
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+      
+      {/* 编辑资料模态框 */}
+      <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} size="xl">
+        <ModalOverlay backdropFilter="blur(5px)" />
+        <ModalContent>
+          <ModalHeader>编辑资料</ModalHeader>
+          <ModalCloseButton />
+          
+          <ModalBody>
+            <VStack spacing={4}>
+              {/* 标题 */}
+              <FormControl isInvalid={!!formErrors.title}>
+                <FormLabel>标题</FormLabel>
+                <Input
+                  name="title"
+                  placeholder="请输入资料标题"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                />
+                <FormErrorMessage>{formErrors.title}</FormErrorMessage>
+              </FormControl>
+              
+              {/* 描述 */}
+              <FormControl isInvalid={!!formErrors.description}>
+                <FormLabel>描述</FormLabel>
+                <Textarea
+                  name="description"
+                  placeholder="请输入资料描述"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows={4}
+                />
+                <FormErrorMessage>{formErrors.description}</FormErrorMessage>
+              </FormControl>
+              
+              {/* 资料类型 */}
+              <FormControl>
+                <FormLabel>资料类型</FormLabel>
+                <Select
+                  name="materialType"
+                  value={formData.materialType}
+                  onChange={handleInputChange}
+                >
+                  <option value="exam">考试</option>
+                  <option value="code">代码</option>
+                  <option value="note">笔记</option>
+                  <option value="other">其他</option>
+                </Select>
+              </FormControl>
+              
+              {/* 课程类型 */}
+              <FormControl>
+                <FormLabel>课程类型</FormLabel>
+                <Select
+                  name="courseType"
+                  value={formData.courseType}
+                  onChange={handleInputChange}
+                >
+                  <option value="dataStructure">数据结构</option>
+                  <option value="algorithms">算法</option>
+                  <option value="computerNetworks">计算机网络</option>
+                  <option value="operatingSystems">操作系统</option>
+                  <option value="databaseSystems">数据库系统</option>
+                  <option value="compilers">编译原理</option>
+                  <option value="computerArchitecture">计算机体系结构</option>
+                  <option value="softwareEngineering">软件工程</option>
+                  <option value="artificialIntelligence">人工智能</option>
+                  <option value="machineLearning">机器学习</option>
+                  <option value="distributedSystems">分布式系统</option>
+                  <option value="computerGraphics">计算机图形学</option>
+                  <option value="other">其他</option>
+                </Select>
+              </FormControl>
+              
+              {/* 教师 */}
+              <FormControl>
+                <FormLabel>教师</FormLabel>
+                <Input
+                  name="teacher"
+                  placeholder="请输入教师姓名（可选）"
+                  value={formData.teacher || ''}
+                  onChange={handleInputChange}
+                />
+              </FormControl>
+              
+              {/* 年份 */}
+              <FormControl>
+                <FormLabel>年份</FormLabel>
+                <Input
+                  name="year"
+                  placeholder="请输入年份（可选）"
+                  value={formData.year || ''}
+                  onChange={handleInputChange}
+                />
+              </FormControl>
+              
+              {/* 学期 */}
+              <FormControl>
+                <FormLabel>学期</FormLabel>
+                <Select
+                  name="semester"
+                  value={formData.semester || ''}
+                  onChange={handleInputChange}
+                >
+                  <option value="">请选择（可选）</option>
+                  <option value="spring">春季</option>
+                  <option value="fall">秋季</option>
+                  <option value="summer">夏季</option>
+                  <option value="winter">冬季</option>
+                </Select>
+              </FormControl>
+              
+              {/* 编程语言（仅当资料类型为代码时显示） */}
+              {formData.materialType === 'code' && (
+                <FormControl isInvalid={!!formErrors.programmingLanguage}>
+                  <FormLabel>编程语言</FormLabel>
+                  <Select
+                    name="programmingLanguage"
+                    value={formData.programmingLanguage || ''}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">请选择</option>
+                    <option value="c">C</option>
+                    <option value="cpp">C++</option>
+                    <option value="java">Java</option>
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="typescript">TypeScript</option>
+                    <option value="go">Go</option>
+                    <option value="rust">Rust</option>
+                    <option value="other">其他</option>
+                  </Select>
+                  <FormErrorMessage>{formErrors.programmingLanguage}</FormErrorMessage>
+                </FormControl>
+              )}
+              
+              {/* 代码仓库链接（仅当资料类型为代码时显示） */}
+              {formData.materialType === 'code' && (
+                <FormControl isInvalid={!!formErrors.repoUrl}>
+                  <FormLabel>代码仓库链接</FormLabel>
+                  <Input
+                    name="repoUrl"
+                    placeholder="请输入代码仓库链接"
+                    value={formData.repoUrl || ''}
+                    onChange={handleInputChange}
+                  />
+                  <FormErrorMessage>{formErrors.repoUrl}</FormErrorMessage>
+                </FormControl>
+              )}
+            </VStack>
+          </ModalBody>
+          
+          <ModalFooter>
+            <Button variant="outline" mr={3} onClick={handleCloseEditModal}>
+              取消
+            </Button>
+            <Button
+              colorScheme="blue"
+              onClick={handleUpdate}
+              isLoading={isSubmitting}
+              loadingText="更新中"
+            >
+              更新
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </Container>
   );
+};
+
+// 获取排序选项名称
+const getSortOptionName = (option: string) => {
+  switch (option) {
+    case 'uploadDate':
+      return '上传日期';
+    case 'views':
+      return '浏览量';
+    case 'downloads':
+      return '下载量';
+    case 'favorites':
+      return '收藏数';
+    case 'rating':
+      return '评分';
+    default:
+      return '上传日期';
+  }
 };
 
 export default Home;
