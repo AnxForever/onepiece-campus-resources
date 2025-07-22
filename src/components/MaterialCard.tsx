@@ -1,366 +1,425 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Github, Calendar, User, Star, Edit, Trash2, Download, Eye, Heart, Share2, MoreHorizontal, ExternalLink } from 'lucide-react';
-import { MaterialItem } from '../types';
+import React, { useState } from 'react';
+import { Eye, Download, Star, Share2, Edit, Trash2, ExternalLink } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { clsx } from 'clsx';
-import { downloadFile, getFileName } from '../utils/fileUtils';
-import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { Material } from '../types';
+import { downloadMaterial, deleteMaterial } from '../api';
+import { toast } from 'react-hot-toast';
 
 interface MaterialCardProps {
-  material: MaterialItem;
+  material: Material;
 }
 
 const MaterialCard: React.FC<MaterialCardProps> = ({ material }) => {
-  const { openPdfModal, admin, openEditModal, deleteMaterial } = useStore();
-  const navigate = useNavigate();
-  const [isLiked, setIsLiked] = useState(false);
-  const [isStarred, setIsStarred] = useState(false);
-  const [showActions, setShowActions] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // 点击外部关闭下拉菜单
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowActions(false);
-      }
-    };
-
-    if (showActions) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showActions]);
-
-  const handleClick = (e: React.MouseEvent) => {
-    // 如果点击的是管理员按钮，不执行卡片点击事件
-    if ((e.target as HTMLElement).closest('.admin-actions')) {
-      return;
-    }
-    
-    // 导航到资源详情页面
-    navigate(`/resource/${material.id}`);
-  };
-
-  const handleDownload = (e: React.MouseEvent) => {
+  const { 
+    admin, 
+    togglePdfModal, 
+    toggleEditModal,
+    deleteMaterial: removeFromStore,
+    favorites,
+    toggleFavorite 
+  } = useStore();
+  
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const isFavorited = favorites.includes(material.id);
+  
+  // 处理点击下载
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     
-    if (material.contentType === 'Paper' && material.filePath) {
-      const fileName = getFileName(material.filePath) || `${material.courseName}-${material.examType}.pdf`;
-      downloadFile(material.filePath, fileName);
-      toast.success(`开始下载：${fileName}`);
-    } else if (material.contentType === 'Code' && material.repoUrl) {
-      // 对于代码项目，打开GitHub页面
-      window.open(material.repoUrl, '_blank');
-      toast.success('已打开GitHub仓库页面');
-    }
+    toast.promise(
+      downloadMaterial(material.id),
+      {
+        loading: '正在准备下载...',
+        success: '下载已开始',
+        error: '下载失败，请稍后再试',
+      }
+    );
   };
-
+  
+  // 处理点击预览
   const handlePreview = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     
-    if (material.contentType === 'Paper') {
-      openPdfModal(material);
-    } else if (material.contentType === 'Code' && material.repoUrl) {
+    if (material.materialType === 'exam' && material.fileUrl) {
+      togglePdfModal(true, material.fileUrl);
+    } else if (material.materialType === 'code' && material.repoUrl) {
       window.open(material.repoUrl, '_blank');
     }
   };
   
+  // 处理点击编辑
   const handleEdit = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    openEditModal(material);
+    
+    toggleEditModal(true, material);
   };
   
-  const handleDelete = (e: React.MouseEvent) => {
+  // 处理点击删除
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    if (window.confirm(`确定要删除「${material.courseName}」吗？此操作不可撤销。`)) {
-      const success = deleteMaterial(material.id);
-      if (success !== false) {
-        toast.success('资料删除成功');
+    
+    if (window.confirm(`确定要删除 "${material.title}" 吗？此操作不可撤销。`)) {
+      setIsDeleting(true);
+      
+      try {
+        const response = await deleteMaterial(material.id);
+        
+        if (response.success) {
+          removeFromStore(material.id);
+          toast.success('资料已成功删除');
+        } else {
+          toast.error(response.message || '删除失败，请稍后再试');
+        }
+      } catch (error) {
+        console.error('Delete error:', error);
+        toast.error('删除过程中发生错误');
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
-
-  const isPaper = material.contentType === 'Paper';
-  const isCode = material.contentType === 'Code';
-
-  const getTypeColor = () => {
-    if (isPaper) {
+  
+  // 根据资料类型设置卡片样式
+  const getCardStyle = () => {
+    if (material.materialType === 'exam') {
       return {
-        bg: 'bg-gradient-to-r from-blue-50 to-blue-100',
-        text: 'text-blue-700',
-        border: 'border-blue-200',
-        glow: 'shadow-blue-200/50'
+        gradientFrom: 'from-purple-500',
+        gradientTo: 'to-indigo-600',
+        iconColor: 'text-purple-500',
+        bgColor: 'bg-purple-50',
+        borderColor: 'border-purple-100',
+        hoverBorderColor: 'hover:border-purple-300',
+        tagBg: 'bg-purple-100',
+        tagText: 'text-purple-800'
       };
     } else {
       return {
-        bg: 'bg-gradient-to-r from-green-50 to-green-100',
-        text: 'text-green-700',
-        border: 'border-green-200',
-        glow: 'shadow-green-200/50'
+        gradientFrom: 'from-blue-500',
+        gradientTo: 'to-cyan-600',
+        iconColor: 'text-blue-500',
+        bgColor: 'bg-blue-50',
+        borderColor: 'border-blue-100',
+        hoverBorderColor: 'hover:border-blue-300',
+        tagBg: 'bg-blue-100',
+        tagText: 'text-blue-800'
       };
     }
   };
-
-  const typeStyle = getTypeColor();
-
+  
+  const style = getCardStyle();
+  
   return (
-    <div className="group relative">
+    <div 
+      className={`relative group overflow-hidden rounded-xl shadow-sm ${style.borderColor} border hover:shadow-md transition-all duration-300 ${style.hoverBorderColor} ${style.bgColor} bg-opacity-30`}
+    >
       {/* 卡片主体 */}
-      <div
-        onClick={handleClick}
-        className={clsx(
-          'relative glass-effect rounded-3xl p-8 magnetic-hover card-3d gradient-border overflow-hidden cursor-pointer transform transition-all duration-700 hover:scale-[1.02]'
-        )}
-      >
+      <div className="relative z-10 p-5">
         {/* 动态背景装饰 */}
-        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl transform translate-x-20 -translate-y-20 group-hover:scale-150 transition-transform duration-700 neon-glow" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-blue-400/15 to-purple-400/15 rounded-full blur-2xl transform -translate-x-16 translate-y-16 group-hover:scale-125 transition-transform duration-500" />
+        <div className={`absolute top-0 right-0 w-32 h-32 rounded-full bg-gradient-to-br ${style.gradientFrom} ${style.gradientTo} opacity-10 -mr-16 -mt-16 blur-2xl`}></div>
+        <div className={`absolute bottom-0 left-0 w-24 h-24 rounded-full bg-gradient-to-tr ${style.gradientFrom} ${style.gradientTo} opacity-10 -ml-12 -mb-12 blur-xl`}></div>
         
         {/* 粒子效果 */}
-        <div className="absolute top-4 left-4 w-2 h-2 bg-purple-400/60 rounded-full particle-animation" />
-        <div className="absolute top-8 right-8 w-1.5 h-1.5 bg-blue-400/60 rounded-full particle-animation" style={{ animationDelay: '1s' }} />
-        <div className="absolute bottom-6 left-6 w-2.5 h-2.5 bg-pink-400/60 rounded-full particle-animation" style={{ animationDelay: '2s' }} />
+        <div className="absolute inset-0 overflow-hidden">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div 
+              key={i}
+              className={`absolute w-1 h-1 rounded-full ${style.gradientFrom} opacity-30`}
+              style={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+                animation: `float ${3 + Math.random() * 7}s ease-in-out infinite`,
+                animationDelay: `${Math.random() * 5}s`
+              }}
+            ></div>
+          ))}
+        </div>
         
         {/* 头部区域 */}
-        <div className="relative mb-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 pr-4">
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-700 to-blue-700 bg-clip-text text-transparent group-hover:from-purple-600 group-hover:to-blue-600 transition-all duration-300 line-clamp-1 flex-1">
-                  {material.courseName}
-                </h3>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsStarred(!isStarred);
-                    toast.success(isStarred ? '已取消星标' : '已添加星标');
-                  }}
-                  className={`p-2 rounded-full transition-all duration-300 hover-scale ${
-                    isStarred ? 'text-yellow-500 bg-yellow-100/80 neon-glow' : 'text-neutral-400 hover:text-yellow-500 hover:bg-yellow-50'
-                  }`}
-                >
-                  <Star className={`w-5 h-5 ${isStarred ? 'fill-current animate-pulse' : ''}`} />
-                </button>
-              </div>
-            
-            {isPaper && material.examType && (
-              <p className="text-purple-600 font-medium mb-2">
-                {material.examType}
-              </p>
-            )}
-            
-            {isCode && material.language && (
-              <div className="flex items-center gap-2 mb-2">
-                <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs">
-                  {material.language}
-                </span>
-                {material.stars && (
-                  <div className="flex items-center gap-1 text-yellow-400 text-xs">
-                    <Star className="w-3 h-3 fill-current" />
-                    {material.stars}
-                  </div>
-                )}
-              </div>
-            )}
-            
-            <div className="flex items-center gap-4 text-sm text-neutral-600 mb-3">
-              <div className="flex items-center gap-1.5">
-                <User className="w-4 h-4" />
-                <span className="font-medium">{material.teacher}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-4 h-4" />
-                <span>{material.year} {material.semester}</span>
-              </div>
-            </div>
-          </div>
-          
-            {/* 类型标签 */}
-            <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border-2 ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border} shadow-lg ${typeStyle.glow} hover-scale magnetic-hover relative overflow-hidden`}>
-              <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent animate-pulse" />
-              <div className="relative z-10 flex items-center gap-3">
-                {isPaper ? (
-                  <>
-                    <div className="p-1.5 bg-blue-500/20 rounded-lg">
-                      <FileText className="w-5 h-5 animate-breathe" />
-                    </div>
-                    <span className="text-base font-bold">📄 试卷资料</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="p-1.5 bg-green-500/20 rounded-lg">
-                      <Github className="w-5 h-5 animate-wave" />
-                    </div>
-                    <span className="text-base font-bold">💻 代码项目</span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* 管理员操作按钮 */}
-          {admin.isAdminMode && (
-            <div className="admin-actions absolute top-0 right-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-lg p-1 shadow-lg">
-              <button
-                onClick={handleEdit}
-                className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-                title="编辑"
-              >
-                <Edit className="w-3 h-3" />
-              </button>
-              <button
-                onClick={handleDelete}
-                className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
-                title="删除"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* 描述区域 */}
-        {material.description && (
-          <div className="relative mb-4">
-            <p className="text-neutral-700 text-sm leading-relaxed line-clamp-2">
-              {material.description}
-            </p>
-          </div>
-        )}
-
-        {/* 统计信息 */}
-        <div className="flex items-center gap-4 mb-4 text-xs text-neutral-500">
-          <div className="flex items-center gap-1">
-            <Eye className="w-3 h-3" />
-            <span>{material.views || 0} 浏览</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Download className="w-3 h-3" />
-            <span>{material.downloads || 0} 下载</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Heart className="w-3 h-3" />
-            <span>{material.favorites || 0} 收藏</span>
-          </div>
-        </div>
-
-        {/* 操作按钮区域 */}
-        <div className="relative flex gap-2">
-          <button 
-            onClick={handlePreview}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white rounded-xl hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 transition-all duration-500 shadow-md hover:shadow-lg magnetic-hover neon-glow group/btn relative overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
-            <Eye className="w-4 h-4 group-hover/btn:scale-110 transition-all duration-300 relative z-10" />
-            <span className="font-medium text-sm relative z-10">预览</span>
-          </button>
-          
-          <button 
-            onClick={handleDownload}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-600 hover:via-blue-700 hover:to-blue-800 transition-all duration-500 shadow-md hover:shadow-lg magnetic-hover card-3d group/btn relative overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
-            <Download className="w-4 h-4 group-hover/btn:scale-110 transition-all duration-300 relative z-10" />
-            <span className="font-medium text-sm relative z-10">{material.contentType === 'Paper' ? '下载' : '访问'}</span>
-          </button>
-          
-          {/* 更多操作 */}
-          <div className="relative" ref={dropdownRef}>
-            <button
+        <div className="mb-3">
+          {/* 课程名称和星标按钮 */}
+          <div className="flex justify-between items-start mb-1">
+            <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 group-hover:text-purple-700 transition-colors">
+              {material.title}
+            </h3>
+            <button 
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
-                setShowActions(!showActions);
+                toggleFavorite(material.id);
               }}
-              className={`p-2 rounded-xl transition-all duration-500 shadow-md hover:shadow-lg magnetic-hover card-3d group/more relative overflow-hidden cursor-pointer ${
-                showActions 
-                  ? 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-700 border-2 border-purple-300' 
-                  : 'bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-600 hover:text-gray-800'
-              }`}
-              type="button"
+              className={`ml-2 flex-shrink-0 p-1 rounded-full transition-colors ${isFavorited ? 'text-yellow-500 hover:text-yellow-600' : 'text-gray-400 hover:text-yellow-500'}`}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/more:opacity-100 transition-opacity duration-300" />
-              <MoreHorizontal className={`w-4 h-4 group-hover/more:scale-110 transition-all duration-300 relative z-10 pointer-events-none ${
-                showActions ? 'rotate-90' : 'group-hover/more:rotate-90'
-              }`} />
+              <Star className="w-5 h-5" fill={isFavorited ? 'currentColor' : 'none'} />
             </button>
+          </div>
+          
+          {/* 考试类型/编程语言 */}
+          <div className="flex flex-wrap gap-2 mb-2">
+            {material.courseType && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                {{
+                  'dataStructure': '数据结构',
+                  'algorithms': '算法',
+                  'computerNetworks': '计算机网络',
+                  'operatingSystems': '操作系统',
+                  'databaseSystems': '数据库系统',
+                  'compilers': '编译原理',
+                  'computerArchitecture': '计算机组成原理',
+                  'softwareEngineering': '软件工程',
+                  'webDevelopment': 'Web开发',
+                  'mobileDevelopment': '移动开发',
+                  'artificialIntelligence': '人工智能',
+                  'machineLearning': '机器学习',
+                  'deepLearning': '深度学习',
+                  'computerVision': '计算机视觉',
+                  'naturalLanguageProcessing': '自然语言处理',
+                  'distributedSystems': '分布式系统',
+                  'cloudComputing': '云计算',
+                  'bigData': '大数据',
+                  'informationSecurity': '信息安全',
+                  'other': '其他'
+                }[material.courseType] || material.courseType}
+              </span>
+            )}
             
-            {showActions && (
-              <div className="absolute bottom-full right-0 mb-2 w-48 bg-white/95 backdrop-blur-xl border-2 border-purple-200/50 rounded-xl shadow-xl overflow-hidden animate-fade-in z-[101]">
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-50/80 to-blue-50/80" />
-                <div className="p-1.5 relative z-10">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsLiked(!isLiked);
-                        toast.success(isLiked ? '已取消收藏' : '已添加到收藏');
-                        setShowActions(false);
-                      }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-lg transition-all duration-300 group/item hover-scale relative overflow-hidden mb-1 ${
-                        isLiked 
-                          ? 'bg-gradient-to-r from-red-50 to-pink-50 text-red-700 border border-red-200' 
-                          : 'text-neutral-700 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 hover:text-red-600 border border-transparent hover:border-red-200'
-                      }`}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-pink-500/5 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300" />
-                      <Heart className={`w-4 h-4 group-hover/item:scale-110 transition-all duration-300 relative z-10 ${isLiked ? 'fill-current text-red-500' : 'text-red-500'}`} />
-                      <span className="text-sm font-medium relative z-10">{isLiked ? '取消收藏' : '收藏'}</span>
-                    </button>
-                    
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const shareText = `分享一个好资源：${material.courseName} - ${material.teacher}老师`;
-                        if (navigator.share) {
-                          navigator.share({
-                            title: material.courseName,
-                            text: shareText,
-                            url: window.location.href
-                          });
-                        } else {
-                          navigator.clipboard.writeText(shareText);
-                          toast.success('分享链接已复制到剪贴板');
-                        }
-                        setShowActions(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-neutral-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 hover:text-blue-600 transition-all duration-300 group/item hover-scale relative overflow-hidden rounded-lg border border-transparent hover:border-blue-200 mb-1"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-cyan-500/5 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300" />
-                      <Share2 className="w-4 h-4 group-hover/item:scale-110 group-hover/item:rotate-12 transition-all duration-300 text-blue-500 relative z-10" />
-                      <span className="text-sm font-medium relative z-10">分享</span>
-                    </button>
-                    
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (material.contentType === 'Paper') {
-                          openPdfModal(material);
-                        } else if (material.repoUrl) {
-                          window.open(material.repoUrl, '_blank');
-                        }
-                        setShowActions(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-neutral-700 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 hover:text-green-600 transition-all duration-300 group/item hover-scale relative overflow-hidden rounded-lg border border-transparent hover:border-green-200"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-emerald-500/5 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300" />
-                      <ExternalLink className="w-4 h-4 group-hover/item:scale-110 group-hover/item:-rotate-12 transition-all duration-300 text-green-500 relative z-10" />
-                      <span className="text-sm font-medium relative z-10">新窗口打开</span>
-                    </button>
-                  </div>
-                </div>
+            {material.materialType === 'code' && material.programmingLanguage && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {{
+                  'c': 'C',
+                  'cpp': 'C++',
+                  'java': 'Java',
+                  'python': 'Python',
+                  'javascript': 'JavaScript',
+                  'typescript': 'TypeScript',
+                  'go': 'Go',
+                  'rust': 'Rust',
+                  'csharp': 'C#',
+                  'php': 'PHP',
+                  'ruby': 'Ruby',
+                  'swift': 'Swift',
+                  'kotlin': 'Kotlin',
+                  'scala': 'Scala',
+                  'r': 'R',
+                  'matlab': 'MATLAB',
+                  'assembly': 'Assembly',
+                  'sql': 'SQL',
+                  'other': '其他'
+                }[material.programmingLanguage] || material.programmingLanguage}
+              </span>
+            )}
+          </div>
+          
+          {/* 星级、教师、年份、学期 */}
+          <div className="flex flex-wrap text-xs text-gray-500 gap-x-4 gap-y-1 mb-1">
+            {material.teacher && (
+              <span className="flex items-center">
+                <span className="mr-1">👨‍🏫</span>
+                {material.teacher}
+              </span>
+            )}
+            
+            {material.year && (
+              <span className="flex items-center">
+                <span className="mr-1">📅</span>
+                {material.year}
+              </span>
+            )}
+            
+            {material.semester && (
+              <span className="flex items-center">
+                <span className="mr-1">🍂</span>
+                {{
+                  'spring': '春季学期',
+                  'fall': '秋季学期',
+                  'summer': '夏季学期',
+                  'winter': '冬季学期'
+                }[material.semester] || material.semester}
+              </span>
             )}
           </div>
         </div>
         
-        {/* 悬浮效果装饰 */}
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-pink-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+        {/* 类型标签 */}
+        <div className="absolute top-0 left-0 mt-5 -ml-6 transform -rotate-45">
+          <div className={`${style.tagBg} ${style.tagText} text-xs font-bold py-1 px-6 shadow-sm`}>
+            {material.materialType === 'exam' ? '试卷资料' : '代码项目'}
+          </div>
+        </div>
+        
+        {/* 管理员操作按钮 */}
+        {admin.isAdminMode && (
+          <div className="absolute top-2 right-2 flex space-x-1">
+            <button 
+              onClick={handleEdit}
+              disabled={isDeleting}
+              className="p-1 rounded-full bg-white text-gray-600 hover:text-purple-600 shadow-sm hover:shadow transition-all"
+              title="编辑"
+            >
+              <Edit className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="p-1 rounded-full bg-white text-gray-600 hover:text-red-600 shadow-sm hover:shadow transition-all"
+              title="删除"
+            >
+              {isDeleting ? (
+                <div className="w-4 h-4 border-2 border-t-red-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+        )}
+        
+        {/* 资料描述 */}
+        <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+          {material.description}
+        </p>
+        
+        {/* 统计信息 */}
+        <div className="flex items-center text-xs text-gray-500 mb-4 space-x-4">
+          <div className="flex items-center">
+            <Eye className="w-3.5 h-3.5 mr-1" />
+            <span>{material.views}</span>
+          </div>
+          <div className="flex items-center">
+            <Download className="w-3.5 h-3.5 mr-1" />
+            <span>{material.downloads}</span>
+          </div>
+          <div className="flex items-center">
+            <Star className="w-3.5 h-3.5 mr-1" />
+            <span>{material.favorites}</span>
+          </div>
+        </div>
+        
+        {/* 操作按钮区域 */}
+        <div className="flex items-center justify-between">
+          {/* 预览按钮 */}
+          <button
+            onClick={handlePreview}
+            className={`flex-1 mr-2 flex items-center justify-center px-3 py-1.5 rounded-lg text-white text-sm font-medium bg-gradient-to-r ${style.gradientFrom} ${style.gradientTo} hover:opacity-90 transition-opacity shadow-sm`}
+          >
+            <Eye className="w-4 h-4 mr-1.5" />
+            预览
+          </button>
+          
+          {/* 下载/访问按钮 */}
+          <button
+            onClick={handleDownload}
+            className="flex-1 flex items-center justify-center px-3 py-1.5 rounded-lg bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
+          >
+            {material.materialType === 'exam' ? (
+              <>
+                <Download className="w-4 h-4 mr-1.5" />
+                下载
+              </>
+            ) : (
+              <>
+                <ExternalLink className="w-4 h-4 mr-1.5" />
+                访问
+              </>
+            )}
+          </button>
+        </div>
+        
+        {/* 更多操作按钮 */}
+        <div className="absolute bottom-2 right-2 flex space-x-1">
+          {/* 收藏按钮 */}
+          <button 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleFavorite(material.id);
+              toast.success(isFavorited ? '已从收藏中移除' : '已添加到收藏');
+            }}
+            className={`p-1.5 rounded-full ${isFavorited ? 'bg-yellow-50 text-yellow-500' : 'bg-white text-gray-400'} hover:shadow transition-all`}
+            title={isFavorited ? '取消收藏' : '收藏'}
+          >
+            <Star className="w-3.5 h-3.5" fill={isFavorited ? 'currentColor' : 'none'} />
+          </button>
+          
+          {/* 分享按钮 */}
+          <div className="relative">
+            <button 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowShareOptions(!showShareOptions);
+              }}
+              className="p-1.5 rounded-full bg-white text-gray-400 hover:text-blue-500 hover:shadow transition-all"
+              title="分享"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+            </button>
+            
+            {showShareOptions && (
+              <div className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-lg shadow-lg py-1 z-10 border border-gray-200">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // 复制分享链接
+                    const shareUrl = `${window.location.origin}/material/${material.id}`;
+                    navigator.clipboard.writeText(shareUrl);
+                    toast.success('链接已复制到剪贴板');
+                    setShowShareOptions(false);
+                  }}
+                  className="block w-full text-left px-3 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                >
+                  复制链接
+                </button>
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // 使用原生分享API（如果可用）
+                    if (navigator.share) {
+                      navigator.share({
+                        title: material.title,
+                        text: material.description,
+                        url: `${window.location.origin}/material/${material.id}`,
+                      });
+                    } else {
+                      toast.error('您的浏览器不支持分享功能');
+                    }
+                    setShowShareOptions(false);
+                  }}
+                  className="block w-full text-left px-3 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                >
+                  分享到...
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {/* 新窗口打开按钮 */}
+          <button 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              // 打开PDF预览或仓库链接
+              if (material.materialType === 'exam' && material.fileUrl) {
+                window.open(material.fileUrl, '_blank');
+              } else if (material.materialType === 'code' && material.repoUrl) {
+                window.open(material.repoUrl, '_blank');
+              }
+            }}
+            className="p-1.5 rounded-full bg-white text-gray-400 hover:text-purple-500 hover:shadow transition-all"
+            title="在新窗口打开"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
       
-
+      {/* 卡片悬浮效果装饰 */}
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-10 transition-opacity duration-700 transform -skew-x-12 translate-x-full group-hover:translate-x-0"></div>
     </div>
   );
 };
