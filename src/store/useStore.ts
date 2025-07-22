@@ -1,11 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Material, AdminState, FilterState, SortOption } from '../types';
+import { AdminState, Material, FilterState, SortOption } from '../types';
 
 interface StoreState {
+  // 管理员状态
+  admin: AdminState;
+  setAdmin: (admin: AdminState) => void;
+  logout: () => void;
+  
   // 资料列表
   materials: Material[];
   setMaterials: (materials: Material[]) => void;
+  addMaterial: (material: Material) => void;
+  updateMaterial: (material: Material) => void;
+  deleteMaterial: (id: string) => void;
   
   // 筛选状态
   filter: FilterState;
@@ -17,155 +25,125 @@ interface StoreState {
   setSortOption: (option: SortOption) => void;
   
   // 搜索关键词
-  searchTerm: string;
-  setSearchTerm: (term: string) => void;
+  searchKeyword: string;
+  setSearchKeyword: (keyword: string) => void;
   
-  // 管理员状态
-  admin: AdminState;
-  setAdmin: (admin: AdminState) => void;
-  logoutAdmin: () => void;
+  // 收藏列表
+  favorites: string[];
+  toggleFavorite: (id: string) => void;
   
   // 模态框状态
-  isLoginModalOpen: boolean;
-  toggleLoginModal: (isOpen?: boolean) => void;
-  
-  isPdfModalOpen: boolean;
-  currentPdfUrl: string | null;
-  togglePdfModal: (isOpen?: boolean, pdfUrl?: string | null) => void;
-  
   isUploadModalOpen: boolean;
-  toggleUploadModal: (isOpen?: boolean) => void;
+  toggleUploadModal: (isOpen: boolean) => void;
   
   isEditModalOpen: boolean;
   currentEditMaterial: Material | null;
-  toggleEditModal: (isOpen?: boolean, material?: Material | null) => void;
+  toggleEditModal: (isOpen: boolean, material?: Material) => void;
   
-  // 上传进度
-  uploadProgress: number;
-  setUploadProgress: (progress: number) => void;
-  
-  // 收藏的资料
-  favorites: string[];
-  toggleFavorite: (materialId: string) => void;
-  
-  // 更新资料
-  updateMaterial: (materialId: string, updates: Partial<Material>) => void;
-  addMaterial: (material: Material) => void;
-  deleteMaterial: (materialId: string) => void;
+  isPdfModalOpen: boolean;
+  currentPdfUrl: string | null;
+  togglePdfModal: (isOpen: boolean, pdfUrl?: string) => void;
 }
 
-// 默认筛选状态
-const defaultFilter: FilterState = {
-  materialType: 'all',
-  courseType: 'all',
-  programmingLanguage: 'all',
-  year: 'all',
-  semester: 'all',
-  teacher: 'all',
-};
-
-// 创建状态管理
+// 创建全局状态管理
 export const useStore = create<StoreState>(
   persist(
     (set) => ({
-      // 资料列表
-      materials: [],
-      setMaterials: (materials) => set({ materials }),
-      
-      // 筛选状态
-      filter: { ...defaultFilter },
-      setFilter: (filter) => set((state) => ({ filter: { ...state.filter, ...filter } })),
-      resetFilter: () => set({ filter: { ...defaultFilter } }),
-      
-      // 排序选项
-      sortOption: 'latest',
-      setSortOption: (option) => set({ sortOption: option }),
-      
-      // 搜索关键词
-      searchTerm: '',
-      setSearchTerm: (term) => set({ searchTerm: term }),
-      
       // 管理员状态
       admin: {
         isAdminMode: false,
         token: null,
-        username: null,
+        username: null
       },
       setAdmin: (admin) => set({ admin }),
-      logoutAdmin: () => set({ 
+      logout: () => set({ 
         admin: {
           isAdminMode: false,
           token: null,
-          username: null,
+          username: null
         }
       }),
       
-      // 登录模态框
-      isLoginModalOpen: false,
-      toggleLoginModal: (isOpen) => set((state) => ({ 
-        isLoginModalOpen: isOpen !== undefined ? isOpen : !state.isLoginModalOpen 
-      })),
-      
-      // PDF预览模态框
-      isPdfModalOpen: false,
-      currentPdfUrl: null,
-      togglePdfModal: (isOpen, pdfUrl) => set((state) => ({
-        isPdfModalOpen: isOpen !== undefined ? isOpen : !state.isPdfModalOpen,
-        currentPdfUrl: pdfUrl !== undefined ? pdfUrl : state.currentPdfUrl
-      })),
-      
-      // 上传模态框
-      isUploadModalOpen: false,
-      toggleUploadModal: (isOpen) => set((state) => ({
-        isUploadModalOpen: isOpen !== undefined ? isOpen : !state.isUploadModalOpen
-      })),
-      
-      // 编辑模态框
-      isEditModalOpen: false,
-      currentEditMaterial: null,
-      toggleEditModal: (isOpen, material) => set((state) => ({
-        isEditModalOpen: isOpen !== undefined ? isOpen : !state.isEditModalOpen,
-        currentEditMaterial: material !== undefined ? material : state.currentEditMaterial
-      })),
-      
-      // 上传进度
-      uploadProgress: 0,
-      setUploadProgress: (progress) => set({ uploadProgress: progress }),
-      
-      // 收藏的资料
-      favorites: [],
-      toggleFavorite: (materialId) => set((state) => {
-        const isFavorited = state.favorites.includes(materialId);
-        return {
-          favorites: isFavorited
-            ? state.favorites.filter(id => id !== materialId)
-            : [...state.favorites, materialId]
-        };
-      }),
-      
-      // 更新资料
-      updateMaterial: (materialId, updates) => set((state) => ({
-        materials: state.materials.map(material =>
-          material.id === materialId ? { ...material, ...updates } : material
-        )
-      })),
-      
-      // 添加资料
+      // 资料列表
+      materials: [],
+      setMaterials: (materials) => set({ materials }),
       addMaterial: (material) => set((state) => ({
         materials: [material, ...state.materials]
       })),
-      
-      // 删除资料
-      deleteMaterial: (materialId) => set((state) => ({
-        materials: state.materials.filter(material => material.id !== materialId)
+      updateMaterial: (material) => set((state) => ({
+        materials: state.materials.map((m) => 
+          m.id === material.id ? material : m
+        )
       })),
+      deleteMaterial: (id) => set((state) => ({
+        materials: state.materials.filter((m) => m.id !== id)
+      })),
+      
+      // 筛选状态
+      filter: {
+        materialType: 'all',
+        courseType: 'all',
+        programmingLanguage: 'all',
+        year: 'all',
+        semester: 'all'
+      },
+      setFilter: (filter) => set((state) => ({
+        filter: { ...state.filter, ...filter }
+      })),
+      resetFilter: () => set({
+        filter: {
+          materialType: 'all',
+          courseType: 'all',
+          programmingLanguage: 'all',
+          year: 'all',
+          semester: 'all'
+        },
+        searchKeyword: ''
+      }),
+      
+      // 排序选项
+      sortOption: 'latest',
+      setSortOption: (sortOption) => set({ sortOption }),
+      
+      // 搜索关键词
+      searchKeyword: '',
+      setSearchKeyword: (searchKeyword) => set({ searchKeyword }),
+      
+      // 收藏列表
+      favorites: [],
+      toggleFavorite: (id) => set((state) => {
+        const isFavorited = state.favorites.includes(id);
+        return {
+          favorites: isFavorited
+            ? state.favorites.filter((favId) => favId !== id)
+            : [...state.favorites, id]
+        };
+      }),
+      
+      // 模态框状态
+      isUploadModalOpen: false,
+      toggleUploadModal: (isOpen) => set({ isUploadModalOpen: isOpen }),
+      
+      isEditModalOpen: false,
+      currentEditMaterial: null,
+      toggleEditModal: (isOpen, material = null) => set({ 
+        isEditModalOpen: isOpen,
+        currentEditMaterial: material
+      }),
+      
+      isPdfModalOpen: false,
+      currentPdfUrl: null,
+      togglePdfModal: (isOpen, pdfUrl = null) => set({
+        isPdfModalOpen: isOpen,
+        currentPdfUrl: pdfUrl
+      })
     }),
     {
-      name: 'onepiece-storage',
+      name: 'campus-resources-storage',
       partialize: (state) => ({
         favorites: state.favorites,
-        admin: state.admin,
-      }),
+        admin: state.admin
+      })
     }
   )
 );
