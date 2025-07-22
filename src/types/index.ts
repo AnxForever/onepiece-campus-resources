@@ -1,4 +1,4 @@
-// 管理员状态类型
+// 管理员状态
 export interface AdminState {
   isAdminMode: boolean;
   token: string | null;
@@ -10,70 +10,62 @@ export interface Material {
   id: string;
   title: string;
   description: string;
-  materialType: 'exam' | 'code'; // 试卷资料 or 代码项目
+  materialType: 'exam' | 'code';
   courseType: CourseType;
-  fileUrl: string;
+  fileUrl?: string;
+  repoUrl?: string;
+  programmingLanguage?: ProgrammingLanguageType;
   thumbnailUrl?: string;
   uploadDate: string;
-  teacher: string;
-  year: string;
-  semester: 'spring' | 'fall' | 'summer' | 'winter';
+  teacher?: string;
+  year?: string;
+  semester?: SemesterType;
   views: number;
   downloads: number;
   favorites: number;
-  tags?: string[];
-  
-  // 试卷资料特有属性
-  fileSize?: number; // MB
-  fileType?: string; // pdf, docx, etc.
-  
-  // 代码项目特有属性
-  programmingLanguage?: ProgrammingLanguage;
-  repoUrl?: string;
 }
 
-// 资料表单数据类型
+// 资料表单数据（用于上传和编辑）
 export interface MaterialFormData {
   title: string;
   description: string;
   materialType: 'exam' | 'code';
   courseType: CourseType;
-  file?: File;
-  teacher: string;
-  year: string;
-  semester: 'spring' | 'fall' | 'summer' | 'winter';
-  tags?: string[];
-  
-  // 代码项目特有属性
-  programmingLanguage?: ProgrammingLanguage;
+  fileUrl?: string;
   repoUrl?: string;
+  programmingLanguage?: ProgrammingLanguageType;
+  thumbnailUrl?: string;
+  teacher?: string;
+  year?: string;
+  semester?: SemesterType;
 }
 
 // 课程类型
 export type CourseType = 
-  | 'dataStructure' // 数据结构
-  | 'algorithms' // 算法
-  | 'computerNetworks' // 计算机网络
-  | 'operatingSystems' // 操作系统
-  | 'databaseSystems' // 数据库系统
-  | 'compilers' // 编译原理
-  | 'computerArchitecture' // 计算机组成原理
-  | 'softwareEngineering' // 软件工程
-  | 'webDevelopment' // Web开发
-  | 'mobileDevelopment' // 移动开发
-  | 'artificialIntelligence' // 人工智能
-  | 'machineLearning' // 机器学习
-  | 'deepLearning' // 深度学习
-  | 'computerVision' // 计算机视觉
-  | 'naturalLanguageProcessing' // 自然语言处理
-  | 'distributedSystems' // 分布式系统
-  | 'cloudComputing' // 云计算
-  | 'bigData' // 大数据
-  | 'informationSecurity' // 信息安全
-  | 'other'; // 其他
+  | 'dataStructure'
+  | 'algorithms'
+  | 'computerNetworks'
+  | 'operatingSystems'
+  | 'databaseSystems'
+  | 'compilers'
+  | 'computerArchitecture'
+  | 'softwareEngineering'
+  | 'webDevelopment'
+  | 'mobileDevelopment'
+  | 'artificialIntelligence'
+  | 'machineLearning'
+  | 'deepLearning'
+  | 'computerVision'
+  | 'naturalLanguageProcessing'
+  | 'distributedSystems'
+  | 'cloudComputing'
+  | 'bigData'
+  | 'informationSecurity'
+  | 'other'
+  | 'all';
 
 // 编程语言类型
-export type ProgrammingLanguage = 
+export type ProgrammingLanguageType = 
   | 'c'
   | 'cpp'
   | 'java'
@@ -92,23 +84,30 @@ export type ProgrammingLanguage =
   | 'matlab'
   | 'assembly'
   | 'sql'
-  | 'other';
+  | 'other'
+  | 'all';
 
-// 筛选状态类型
+// 学期类型
+export type SemesterType = 
+  | 'spring'
+  | 'fall'
+  | 'summer'
+  | 'winter'
+  | 'all';
+
+// 筛选状态
 export interface FilterState {
-  materialType: 'all' | 'exam' | 'code';
-  courseType: 'all' | CourseType;
-  programmingLanguage?: 'all' | ProgrammingLanguage;
-  year: 'all' | string;
-  semester: 'all' | 'spring' | 'fall' | 'summer' | 'winter';
-  teacher: 'all' | string;
+  materialType: 'exam' | 'code' | 'all';
+  courseType: CourseType;
+  programmingLanguage?: ProgrammingLanguageType;
+  year: string | 'all';
+  semester: SemesterType;
 }
 
-// 排序选项类型
+// 排序选项
 export type SortOption = 
-  | 'latest' // 最新上传
-  | 'oldest' // 最早上传
-  | 'mostViewed' // 最多浏览
-  | 'mostDownloaded' // 最多下载
-  | 'mostFavorited' // 最多收藏
-  | 'alphabetical'; // 字母顺序
+  | 'latest'
+  | 'oldest'
+  | 'mostViewed'
+  | 'mostDownloaded'
+  | 'mostFavorited';
