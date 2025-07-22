@@ -1,121 +1,122 @@
 import React, { useState, useEffect } from 'react';
+import { Menu, X, LogIn, LogOut, Upload, User, Home, Book, Code } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Upload, LogIn, LogOut, User } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import LoginModal from './LoginModal';
 
 const Navbar: React.FC = () => {
-  const location = useLocation();
-  const { admin, logout, toggleUploadModal } = useStore();
+  const { admin, logout, toggleLoginModal, toggleUploadModal } = useStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const location = useLocation();
   
-  // 监听滚动事件，添加导航栏背景
+  // 监听滚动事件，用于导航栏样式变化
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 10) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
+      setIsScrolled(window.scrollY > 10);
     };
     
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
   
+  // 关闭移动端菜单
+  const closeMenu = () => setIsMenuOpen(false);
+  
   // 处理登录按钮点击
   const handleLoginClick = () => {
-    setIsLoginModalOpen(true);
-    setIsMenuOpen(false);
+    toggleLoginModal(true);
+    closeMenu();
   };
   
   // 处理登出按钮点击
   const handleLogoutClick = () => {
     logout();
-    setIsMenuOpen(false);
+    closeMenu();
   };
   
   // 处理上传按钮点击
   const handleUploadClick = () => {
     toggleUploadModal(true);
-    setIsMenuOpen(false);
+    closeMenu();
   };
   
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md shadow-sm' : 'bg-transparent'}`}>
+      <header 
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-md py-2' : 'bg-transparent py-4'}`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo和品牌名称 */}
+          <div className="flex justify-between items-center">
+            {/* Logo */}
             <div className="flex items-center">
-              <Link to="/" className="flex items-center">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-lg mr-2">
-                  OP
+              <Link to="/" className="flex items-center" onClick={closeMenu}>
+                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-md">
+                  <span className="text-white font-bold text-xl">OP</span>
                 </div>
-                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
+                <span className="ml-2 text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
                   OnePiece
-                </span>
-                <span className="ml-1 text-gray-700 font-medium hidden sm:inline-block">
-                  校园资源共享
                 </span>
               </Link>
             </div>
             
-            {/* 桌面导航链接 */}
-            <div className="hidden md:flex items-center space-x-4">
+            {/* 桌面端导航 */}
+            <nav className="hidden md:flex items-center space-x-8">
               <Link 
                 to="/" 
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/' ? 'text-purple-600' : 'text-gray-700 hover:text-purple-600'}`}
+                className={`text-sm font-medium ${location.pathname === '/' ? 'text-purple-600' : 'text-gray-700 hover:text-purple-600'} transition-colors`}
               >
                 首页
               </Link>
               <Link 
+                to="/exams" 
+                className={`text-sm font-medium ${location.pathname === '/exams' ? 'text-purple-600' : 'text-gray-700 hover:text-purple-600'} transition-colors`}
+              >
+                试卷资料
+              </Link>
+              <Link 
+                to="/projects" 
+                className={`text-sm font-medium ${location.pathname === '/projects' ? 'text-purple-600' : 'text-gray-700 hover:text-purple-600'} transition-colors`}
+              >
+                代码项目
+              </Link>
+              <Link 
                 to="/about" 
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/about' ? 'text-purple-600' : 'text-gray-700 hover:text-purple-600'}`}
+                className={`text-sm font-medium ${location.pathname === '/about' ? 'text-purple-600' : 'text-gray-700 hover:text-purple-600'} transition-colors`}
               >
                 关于我们
               </Link>
               
-              {/* 管理员操作按钮 */}
+              {/* 管理员上传按钮 */}
+              {admin.isAdminMode && (
+                <button
+                  onClick={handleUploadClick}
+                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                >
+                  <Upload className="h-4 w-4 mr-1.5" />
+                  上传资源
+                </button>
+              )}
+              
+              {/* 登录/登出按钮 */}
               {admin.isAdminMode ? (
-                <div className="flex items-center ml-4">
-                  <button
-                    onClick={handleUploadClick}
-                    className="ml-2 inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 shadow-sm transition-colors"
-                  >
-                    <Upload className="w-4 h-4 mr-1" />
-                    上传资源
-                  </button>
-                  
-                  <div className="relative ml-3 group">
-                    <button className="flex items-center text-sm font-medium text-gray-700 hover:text-purple-600 focus:outline-none">
-                      <User className="w-5 h-5 mr-1" />
-                      <span>{admin.username}</span>
-                    </button>
-                    
-                    <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 hidden group-hover:block">
-                      <button
-                        onClick={handleLogoutClick}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                      >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        退出登录
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <button
+                  onClick={handleLogoutClick}
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                >
+                  <LogOut className="h-4 w-4 mr-1.5" />
+                  退出管理
+                </button>
               ) : (
                 <button
                   onClick={handleLoginClick}
-                  className="ml-4 inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 shadow-sm transition-colors"
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                 >
-                  <LogIn className="w-4 h-4 mr-1" />
+                  <LogIn className="h-4 w-4 mr-1.5" />
                   管理员登录
                 </button>
               )}
-            </div>
+            </nav>
             
             {/* 移动端菜单按钮 */}
             <div className="md:hidden">
@@ -123,7 +124,7 @@ const Navbar: React.FC = () => {
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-purple-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500"
               >
-                <span className="sr-only">打开主菜单</span>
+                <span className="sr-only">打开菜单</span>
                 {isMenuOpen ? (
                   <X className="block h-6 w-6" aria-hidden="true" />
                 ) : (
@@ -136,63 +137,77 @@ const Navbar: React.FC = () => {
         
         {/* 移动端菜单 */}
         {isMenuOpen && (
-          <div className="md:hidden bg-white shadow-lg rounded-b-lg">
+          <div className="md:hidden bg-white shadow-lg rounded-b-lg mt-2">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               <Link
                 to="/"
-                className={`block px-3 py-2 rounded-md text-base font-medium ${location.pathname === '/' ? 'text-purple-600 bg-purple-50' : 'text-gray-700 hover:text-purple-600 hover:bg-gray-50'}`}
-                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-purple-600 hover:bg-gray-50"
+                onClick={closeMenu}
               >
+                <Home className="h-5 w-5 mr-2" />
                 首页
               </Link>
               <Link
-                to="/about"
-                className={`block px-3 py-2 rounded-md text-base font-medium ${location.pathname === '/about' ? 'text-purple-600 bg-purple-50' : 'text-gray-700 hover:text-purple-600 hover:bg-gray-50'}`}
-                onClick={() => setIsMenuOpen(false)}
+                to="/exams"
+                className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-purple-600 hover:bg-gray-50"
+                onClick={closeMenu}
               >
+                <Book className="h-5 w-5 mr-2" />
+                试卷资料
+              </Link>
+              <Link
+                to="/projects"
+                className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-purple-600 hover:bg-gray-50"
+                onClick={closeMenu}
+              >
+                <Code className="h-5 w-5 mr-2" />
+                代码项目
+              </Link>
+              <Link
+                to="/about"
+                className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-purple-600 hover:bg-gray-50"
+                onClick={closeMenu}
+              >
+                <User className="h-5 w-5 mr-2" />
                 关于我们
               </Link>
               
-              {/* 管理员操作按钮（移动端） */}
+              {/* 管理员上传按钮（移动端） */}
+              {admin.isAdminMode && (
+                <button
+                  onClick={handleUploadClick}
+                  className="flex w-full items-center px-3 py-2 rounded-md text-base font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                >
+                  <Upload className="h-5 w-5 mr-2" />
+                  上传资源
+                </button>
+              )}
+              
+              {/* 登录/登出按钮（移动端） */}
               {admin.isAdminMode ? (
-                <div className="space-y-1 pt-2 border-t border-gray-200">
-                  <div className="px-3 py-2 text-sm text-gray-500">
-                    已登录为: {admin.username}
-                  </div>
-                  <button
-                    onClick={handleUploadClick}
-                    className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-purple-600 hover:bg-gray-50 flex items-center"
-                  >
-                    <Upload className="w-5 h-5 mr-2" />
-                    上传资源
-                  </button>
-                  <button
-                    onClick={handleLogoutClick}
-                    className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 flex items-center"
-                  >
-                    <LogOut className="w-5 h-5 mr-2" />
-                    退出登录
-                  </button>
-                </div>
+                <button
+                  onClick={handleLogoutClick}
+                  className="flex w-full items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-purple-600 hover:bg-gray-50"
+                >
+                  <LogOut className="h-5 w-5 mr-2" />
+                  退出管理
+                </button>
               ) : (
                 <button
                   onClick={handleLoginClick}
-                  className="w-full text-left mt-2 block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-purple-600 hover:bg-gray-50 flex items-center"
+                  className="flex w-full items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-purple-600 hover:bg-gray-50"
                 >
-                  <LogIn className="w-5 h-5 mr-2" />
+                  <LogIn className="h-5 w-5 mr-2" />
                   管理员登录
                 </button>
               )}
             </div>
           </div>
         )}
-      </nav>
+      </header>
       
       {/* 登录模态框 */}
-      <LoginModal 
-        isOpen={isLoginModalOpen} 
-        onClose={() => setIsLoginModalOpen(false)} 
-      />
+      <LoginModal />
     </>
   );
 };
