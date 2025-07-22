@@ -1,69 +1,59 @@
 import axios from 'axios';
 import { Material, MaterialFormData } from '../types';
 
-// 模拟API基础URL
-const API_BASE_URL = 'https://api.example.com';
-
 // 创建axios实例
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: '/api', // 实际部署时替换为真实API地址
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
-  },
+    'Content-Type': 'application/json'
+  }
 });
 
-// 请求拦截器 - 添加认证token
+// 请求拦截器，添加认证token
 api.interceptors.request.use(
   (config) => {
-    const adminData = localStorage.getItem('onepiece-storage');
-    if (adminData) {
-      try {
-        const { state } = JSON.parse(adminData);
-        if (state.admin && state.admin.token) {
-          config.headers.Authorization = `Bearer ${state.admin.token}`;
-        }
-      } catch (error) {
-        console.error('Error parsing admin data:', error);
-      }
+    const adminState = JSON.parse(localStorage.getItem('campus-resources-storage') || '{}');
+    const token = adminState?.state?.admin?.token;
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+    
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// 模拟延迟函数
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// 模拟的API服务
+// 在实际项目中，这些函数将调用后端API
 
-// 模拟管理员登录
+// 管理员登录
 export const login = async (username: string, password: string) => {
   try {
-    // 模拟API调用延迟
-    await delay(1000);
+    // 模拟API调用
+    // const response = await api.post('/admin/login', { username, password });
+    // return response.data;
     
-    // 模拟登录验证
-    if (username === 'admin' && password === 'admin123') {
+    // 模拟登录逻辑
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    if (username === 'admin' && password === 'password') {
       return {
         success: true,
-        token: 'mock-jwt-token-for-admin',
+        token: 'mock-jwt-token',
         message: '登录成功'
       };
     } else {
       return {
         success: false,
-        token: null,
         message: '用户名或密码错误'
       };
     }
-    
-    // 实际API调用（已注释）
-    // const response = await api.post('/auth/login', { username, password });
-    // return response.data;
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Login API error:', error);
     return {
       success: false,
-      token: null,
       message: '登录失败，请稍后再试'
     };
   }
@@ -72,188 +62,147 @@ export const login = async (username: string, password: string) => {
 // 获取资料列表
 export const getMaterials = async () => {
   try {
-    // 模拟API调用延迟
-    await delay(1000);
+    // 模拟API调用
+    // const response = await api.get('/materials');
+    // return response.data;
     
-    // 模拟资料数据
+    // 模拟数据
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
     const mockMaterials: Material[] = [
       {
         id: '1',
-        title: '数据结构期末考试真题',
-        description: '2023年春季学期数据结构期末考试真题，包含答案和详细解析',
+        title: '数据结构期末试卷（2023年春季学期）',
+        description: '包含数据结构与算法分析课程的期末考试试题和参考答案，涵盖链表、树、图、排序和搜索算法等内容。',
         materialType: 'exam',
         courseType: 'dataStructure',
         fileUrl: 'https://example.com/files/data-structure-exam-2023.pdf',
         thumbnailUrl: 'https://example.com/thumbnails/data-structure-exam-2023.jpg',
-        uploadDate: '2023-07-15T08:30:00Z',
+        uploadDate: '2023-07-15',
         teacher: '张教授',
         year: '2023',
         semester: 'spring',
         views: 1250,
         downloads: 780,
-        favorites: 320,
-        fileSize: 2.5,
-        fileType: 'pdf',
-        tags: ['数据结构', '期末考试', '真题']
+        favorites: 320
       },
       {
         id: '2',
-        title: 'Web开发课程项目代码',
-        description: '基于React和Node.js的完整Web应用项目，包含前后端代码和文档',
-        materialType: 'code',
-        courseType: 'webDevelopment',
-        fileUrl: 'https://github.com/example/web-dev-project',
-        thumbnailUrl: 'https://example.com/thumbnails/web-dev-project.jpg',
-        uploadDate: '2023-06-20T14:15:00Z',
+        title: '操作系统实验报告模板',
+        description: '操作系统课程实验报告的标准模板，包含进程管理、内存管理、文件系统等实验的格式要求和评分标准。',
+        materialType: 'exam',
+        courseType: 'operatingSystems',
+        fileUrl: 'https://example.com/files/os-lab-template.pdf',
+        thumbnailUrl: 'https://example.com/thumbnails/os-lab-template.jpg',
+        uploadDate: '2023-03-22',
         teacher: '李教授',
         year: '2023',
         semester: 'spring',
         views: 980,
-        downloads: 450,
-        favorites: 210,
-        programmingLanguage: 'javascript',
-        repoUrl: 'https://github.com/example/web-dev-project',
-        tags: ['Web开发', 'React', 'Node.js', '项目代码']
+        downloads: 650,
+        favorites: 210
       },
       {
         id: '3',
-        title: '计算机网络实验报告模板',
-        description: '计算机网络课程实验报告标准模板，包含格式要求和示例',
-        materialType: 'exam',
+        title: '计算机网络课程项目：聊天应用',
+        description: '基于Socket编程实现的简单聊天应用，支持多客户端连接、私聊和群聊功能，是计算机网络课程的综合实践项目。',
+        materialType: 'code',
         courseType: 'computerNetworks',
-        fileUrl: 'https://example.com/files/network-lab-report-template.docx',
-        thumbnailUrl: 'https://example.com/thumbnails/network-lab-report.jpg',
-        uploadDate: '2023-05-10T10:45:00Z',
+        programmingLanguage: 'java',
+        repoUrl: 'https://github.com/example/chat-app',
+        thumbnailUrl: 'https://example.com/thumbnails/chat-app.jpg',
+        uploadDate: '2023-05-10',
         teacher: '王教授',
         year: '2023',
         semester: 'spring',
-        views: 850,
-        downloads: 620,
-        favorites: 150,
-        fileSize: 1.2,
-        fileType: 'docx',
-        tags: ['计算机网络', '实验报告', '模板']
+        views: 1560,
+        downloads: 920,
+        favorites: 450
       },
       {
         id: '4',
-        title: '算法分析与设计课程笔记',
-        description: '算法分析与设计课程完整笔记，包含所有重要算法的详细解析和复杂度分析',
+        title: '人工智能导论期中考试（2022年秋季学期）',
+        description: '人工智能导论课程的期中考试试题，包含机器学习基础、搜索算法、知识表示等内容，附有详细解析。',
         materialType: 'exam',
-        courseType: 'algorithms',
-        fileUrl: 'https://example.com/files/algorithm-notes-2023.pdf',
-        thumbnailUrl: 'https://example.com/thumbnails/algorithm-notes.jpg',
-        uploadDate: '2023-04-25T16:20:00Z',
-        teacher: '赵教授',
-        year: '2023',
-        semester: 'spring',
-        views: 1500,
-        downloads: 950,
-        favorites: 420,
-        fileSize: 4.8,
-        fileType: 'pdf',
-        tags: ['算法', '课程笔记', '复杂度分析']
+        courseType: 'artificialIntelligence',
+        fileUrl: 'https://example.com/files/ai-midterm-2022.pdf',
+        thumbnailUrl: 'https://example.com/thumbnails/ai-midterm-2022.jpg',
+        uploadDate: '2022-11-18',
+        teacher: '刘教授',
+        year: '2022',
+        semester: 'fall',
+        views: 2100,
+        downloads: 1450,
+        favorites: 580
       },
       {
         id: '5',
-        title: '机器学习项目代码',
-        description: '基于Python和TensorFlow的图像分类机器学习项目，包含数据集和训练模型',
+        title: '数据库系统实现：迷你SQL引擎',
+        description: '一个简化的SQL引擎实现，支持基本的SQL查询、表创建和数据操作，是数据库系统课程的大作业项目。',
         materialType: 'code',
-        courseType: 'machineLearning',
-        fileUrl: 'https://github.com/example/ml-image-classification',
-        thumbnailUrl: 'https://example.com/thumbnails/ml-project.jpg',
-        uploadDate: '2023-03-15T09:10:00Z',
-        teacher: '陈教授',
-        year: '2023',
-        semester: 'spring',
-        views: 1100,
-        downloads: 580,
-        favorites: 290,
-        programmingLanguage: 'python',
-        repoUrl: 'https://github.com/example/ml-image-classification',
-        tags: ['机器学习', 'Python', 'TensorFlow', '图像分类']
+        courseType: 'databaseSystems',
+        programmingLanguage: 'cpp',
+        repoUrl: 'https://github.com/example/mini-sql-engine',
+        thumbnailUrl: 'https://example.com/thumbnails/mini-sql-engine.jpg',
+        uploadDate: '2023-01-05',
+        teacher: '赵教授',
+        year: '2022',
+        semester: 'fall',
+        views: 1820,
+        downloads: 1100,
+        favorites: 490
       },
       {
         id: '6',
-        title: '操作系统期中考试真题',
-        description: '2022年秋季学期操作系统期中考试真题，包含部分答案',
-        materialType: 'exam',
-        courseType: 'operatingSystems',
-        fileUrl: 'https://example.com/files/os-midterm-2022.pdf',
-        thumbnailUrl: 'https://example.com/thumbnails/os-midterm.jpg',
-        uploadDate: '2022-12-10T11:30:00Z',
-        teacher: '林教授',
+        title: '编译原理实验：词法分析器',
+        description: '使用C++实现的词法分析器，能够识别C语言的关键字、标识符、常量和运算符，是编译原理课程的第一个实验。',
+        materialType: 'code',
+        courseType: 'compilers',
+        programmingLanguage: 'cpp',
+        repoUrl: 'https://github.com/example/lexical-analyzer',
+        thumbnailUrl: 'https://example.com/thumbnails/lexical-analyzer.jpg',
+        uploadDate: '2022-10-12',
+        teacher: '钱教授',
         year: '2022',
         semester: 'fall',
-        views: 920,
-        downloads: 680,
-        favorites: 180,
-        fileSize: 1.8,
-        fileType: 'pdf',
-        tags: ['操作系统', '期中考试', '真题']
+        views: 1350,
+        downloads: 890,
+        favorites: 320
       }
     ];
     
     return {
       success: true,
-      data: mockMaterials,
-      message: '获取资料列表成功'
+      data: mockMaterials
     };
-    
-    // 实际API调用（已注释）
-    // const response = await api.get('/materials');
-    // return response.data;
   } catch (error) {
-    console.error('Get materials error:', error);
+    console.error('Get materials API error:', error);
     return {
       success: false,
-      data: [],
-      message: '获取资料列表失败，请稍后再试'
+      message: '获取资料列表失败',
+      data: []
     };
   }
 };
 
-// 上传资料
-export const uploadMaterial = async (formData: MaterialFormData, onProgress?: (progress: number) => void) => {
+// 上传新资料
+export const uploadMaterial = async (formData: MaterialFormData) => {
   try {
-    // 模拟上传进度
-    if (onProgress) {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        onProgress(progress);
-        if (progress >= 100) {
-          clearInterval(interval);
-        }
-      }, 500);
-    }
+    // 模拟API调用
+    // const response = await api.post('/materials', formData);
+    // return response.data;
     
-    // 模拟API调用延迟
-    await delay(5000);
+    // 模拟上传逻辑
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // 模拟新上传的资料
+    // 生成模拟数据
     const newMaterial: Material = {
       id: Date.now().toString(),
-      title: formData.title,
-      description: formData.description,
-      materialType: formData.materialType,
-      courseType: formData.courseType,
-      fileUrl: 'https://example.com/files/new-material.pdf',
-      thumbnailUrl: 'https://example.com/thumbnails/new-material.jpg',
-      uploadDate: new Date().toISOString(),
-      teacher: formData.teacher,
-      year: formData.year,
-      semester: formData.semester,
+      ...formData,
+      uploadDate: new Date().toISOString().split('T')[0],
       views: 0,
       downloads: 0,
-      favorites: 0,
-      tags: formData.tags || [],
-      ...(formData.materialType === 'exam' ? {
-        fileSize: 2.5,
-        fileType: 'pdf',
-      } : {
-        programmingLanguage: formData.programmingLanguage,
-        repoUrl: formData.repoUrl,
-      }),
+      favorites: 0
     };
     
     return {
@@ -261,141 +210,143 @@ export const uploadMaterial = async (formData: MaterialFormData, onProgress?: (p
       data: newMaterial,
       message: '资料上传成功'
     };
-    
-    // 实际API调用（已注释）
-    // const response = await api.post('/materials', formData, {
-    //   onUploadProgress: (progressEvent) => {
-    //     if (progressEvent.total && onProgress) {
-    //       const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-    //       onProgress(percentCompleted);
-    //     }
-    //   }
-    // });
-    // return response.data;
   } catch (error) {
-    console.error('Upload material error:', error);
+    console.error('Upload material API error:', error);
     return {
       success: false,
-      data: null,
-      message: '资料上传失败，请稍后再试'
+      message: '上传资料失败，请稍后再试'
     };
   }
 };
 
 // 更新资料
-export const updateMaterial = async (materialId: string, updates: Partial<MaterialFormData>) => {
+export const updateMaterial = async (id: string, formData: MaterialFormData) => {
   try {
-    // 模拟API调用延迟
-    await delay(1000);
+    // 模拟API调用
+    // const response = await api.put(`/materials/${id}`, formData);
+    // return response.data;
+    
+    // 模拟更新逻辑
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // 获取当前资料（在实际应用中，这会从后端获取）
+    const currentMaterial = {
+      id,
+      uploadDate: '2023-01-01',
+      views: 100,
+      downloads: 50,
+      favorites: 20
+    };
+    
+    // 更新资料
+    const updatedMaterial: Material = {
+      ...currentMaterial,
+      ...formData
+    };
     
     return {
       success: true,
+      data: updatedMaterial,
       message: '资料更新成功'
     };
-    
-    // 实际API调用（已注释）
-    // const response = await api.put(`/materials/${materialId}`, updates);
-    // return response.data;
   } catch (error) {
-    console.error('Update material error:', error);
+    console.error('Update material API error:', error);
     return {
       success: false,
-      message: '资料更新失败，请稍后再试'
+      message: '更新资料失败，请稍后再试'
     };
   }
 };
 
 // 删除资料
-export const deleteMaterial = async (materialId: string) => {
+export const deleteMaterial = async (id: string) => {
   try {
-    // 模拟API调用延迟
-    await delay(1000);
+    // 模拟API调用
+    // const response = await api.delete(`/materials/${id}`);
+    // return response.data;
+    
+    // 模拟删除逻辑
+    await new Promise(resolve => setTimeout(resolve, 800));
     
     return {
       success: true,
       message: '资料删除成功'
     };
-    
-    // 实际API调用（已注释）
-    // const response = await api.delete(`/materials/${materialId}`);
-    // return response.data;
   } catch (error) {
-    console.error('Delete material error:', error);
+    console.error('Delete material API error:', error);
     return {
       success: false,
-      message: '资料删除失败，请稍后再试'
+      message: '删除资料失败，请稍后再试'
     };
   }
 };
 
 // 下载资料
-export const downloadMaterial = async (materialId: string) => {
+export const downloadMaterial = async (id: string) => {
   try {
-    // 模拟API调用延迟
-    await delay(500);
-    
-    // 模拟下载逻辑
-    // 实际应用中，这里应该触发文件下载
-    
-    return {
-      success: true,
-      message: '资料下载成功'
-    };
-    
-    // 实际API调用（已注释）
-    // const response = await api.get(`/materials/${materialId}/download`, { responseType: 'blob' });
+    // 模拟API调用
+    // 在实际应用中，这会触发文件下载
+    // const response = await api.get(`/materials/${id}/download`, { responseType: 'blob' });
     // const url = window.URL.createObjectURL(new Blob([response.data]));
     // const link = document.createElement('a');
     // link.href = url;
-    // link.setAttribute('download', 'filename'); // 从响应头获取文件名
+    // link.setAttribute('download', `material-${id}.pdf`);
     // document.body.appendChild(link);
     // link.click();
     // link.remove();
-    // return { success: true, message: '资料下载成功' };
+    
+    // 模拟下载逻辑
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      success: true,
+      message: '下载开始'
+    };
   } catch (error) {
-    console.error('Download material error:', error);
+    console.error('Download material API error:', error);
     return {
       success: false,
-      message: '资料下载失败，请稍后再试'
+      message: '下载失败，请稍后再试'
     };
   }
 };
 
-// 获取资料统计数据
-export const getMaterialStats = async () => {
+// 获取统计数据
+export const getStatistics = async () => {
   try {
-    // 模拟API调用延迟
-    await delay(800);
+    // 模拟API调用
+    // const response = await api.get('/statistics');
+    // return response.data;
     
     // 模拟统计数据
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     return {
       success: true,
       data: {
-        totalMaterials: 120,
-        totalExams: 75,
-        totalCodes: 45,
-        totalViews: 15800,
-        totalDownloads: 8900,
-        popularCourses: [
-          { courseType: 'dataStructure', count: 28 },
-          { courseType: 'algorithms', count: 22 },
-          { courseType: 'webDevelopment', count: 18 },
-          { courseType: 'machineLearning', count: 15 },
-          { courseType: 'operatingSystems', count: 12 },
-        ]
-      },
-      message: '获取统计数据成功'
+        totalMaterials: 256,
+        totalExams: 178,
+        totalProjects: 78,
+        totalViews: 45280,
+        totalDownloads: 28750,
+        totalFavorites: 12340
+      }
     };
-    
-    // 实际API调用（已注释）
-    // const response = await api.get('/materials/stats');
-    // return response.data;
   } catch (error) {
-    console.error('Get stats error:', error);
+    console.error('Get statistics API error:', error);
     return {
       success: false,
-      data: null,
-      message: '获取统计数据失败，请稍后再试'
+      message: '获取统计数据失败',
+      data: {
+        totalMaterials: 0,
+        totalExams: 0,
+        totalProjects: 0,
+        totalViews: 0,
+        totalDownloads: 0,
+        totalFavorites: 0
+      }
     };
   }
 };
+
+export default api;
