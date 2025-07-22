@@ -1,136 +1,148 @@
-import React, { useState } from 'react';
-import { X, Eye, EyeOff, Lock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Lock, User, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { toast } from 'sonner';
+import { login } from '../api';
 
 const LoginModal: React.FC = () => {
-  const { admin, toggleLoginModal, setAdminMode } = useStore();
+  const { toggleLoginModal, setAdmin } = useStore();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
-  // 处理表单提交
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    // 模拟API请求延迟
-    setTimeout(() => {
-      // 检查密码是否正确
-      if (password === admin.password) {
-        setAdminMode(true);
+  // 点击外部关闭模态框
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
         toggleLoginModal(false);
-        toast.success('管理员登录成功');
-      } else {
-        setError('密码错误，请重试');
       }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [toggleLoginModal]);
+
+  // 处理登录
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // 表单验证
+    if (!username.trim() || !password.trim()) {
+      setError('用户名和密码不能为空');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      // 调用登录API
+      const response = await login(username, password);
+      
+      if (response.success) {
+        // 登录成功
+        setAdmin({
+          isAdminMode: true,
+          token: response.token,
+          username: username
+        });
+        toggleLoginModal(false);
+      } else {
+        // 登录失败
+        setError(response.message || '登录失败，请检查用户名和密码');
+      }
+    } catch (err) {
+      setError('登录过程中发生错误，请稍后再试');
+      console.error('Login error:', err);
+    } finally {
       setIsLoading(false);
-    }, 800);
-  };
-
-  // 处理取消按钮
-  const handleCancel = () => {
-    toggleLoginModal(false);
-  };
-
-  // 处理密码输入变化
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPassword(e.target.value);
-    if (error) setError('');
-  };
-
-  // 切换密码显示/隐藏
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* 背景遮罩 */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel}></div>
-      
-      {/* 模态框 */}
-      <div className="relative w-full max-w-md p-6 bg-white rounded-2xl shadow-2xl transform transition-all animate-fade-in-up">
-        {/* 装饰性背景 */}
-        <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-          <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-purple-400/30 to-pink-400/30 rounded-full blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-gradient-to-tr from-blue-400/30 to-purple-400/30 rounded-full blur-3xl" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div 
+        ref={modalRef}
+        className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden transform transition-all"
+        style={{ maxWidth: '400px' }}
+      >
+        {/* 模态框头部 */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">管理员登录</h3>
+          <button 
+            onClick={() => toggleLoginModal(false)}
+            className="text-gray-400 hover:text-gray-500 focus:outline-none"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
         
-        {/* 内容区域 */}
-        <div className="relative z-10">
-          {/* 标题和关闭按钮 */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              管理员登录
-            </h2>
-            <button 
-              onClick={handleCancel}
-              className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          
-          {/* 登录表单 */}
-          <form onSubmit={handleSubmit}>
-            <div className="mb-6">
-              <div className="flex items-center justify-center mb-6">
-                <div className="p-4 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg">
-                  <Lock className="w-8 h-8 text-white" />
+        {/* 模态框内容 */}
+        <div className="px-6 py-4">
+          <form onSubmit={handleLogin}>
+            {/* 错误提示 */}
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <div className="flex items-center space-x-2 text-red-600">
+                  <AlertCircle className="w-5 h-5" />
+                  <span className="text-sm font-medium">{error}</span>
                 </div>
               </div>
-              
+            )}
+            
+            {/* 用户名输入 */}
+            <div className="mb-4">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                用户名
+              </label>
               <div className="relative">
-                <div className="flex">
-                  <div className="relative flex-1">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={handlePasswordChange}
-                      placeholder="请输入管理员密码"
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={togglePasswordVisibility}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <User className="h-5 w-5 text-gray-400" />
                 </div>
-                
-                {error && (
-                  <p className="mt-2 text-sm text-red-600">{error}</p>
-                )}
-                
-                <p className="mt-3 text-sm text-gray-500">
-                  提示：默认管理员密码为 <span className="font-medium text-purple-600">admin123</span>
-                </p>
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                  placeholder="请输入管理员用户名"
+                  disabled={isLoading}
+                />
               </div>
             </div>
             
-            {/* 按钮区域 */}
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg text-white font-medium hover:from-purple-700 hover:to-blue-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {isLoading ? '登录中...' : '登录'}
-              </button>
+            {/* 密码输入 */}
+            <div className="mb-6">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                密码
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                  placeholder="请输入管理员密码"
+                  disabled={isLoading}
+                />
+              </div>
             </div>
+            
+            {/* 登录按钮 */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              {isLoading ? '登录中...' : '登录'}
+            </button>
           </form>
         </div>
       </div>
