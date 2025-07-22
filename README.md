@@ -1,1 +1,19 @@
-# onepiece-campus-resources
+# One Piece 校园资源平台
+
+一个现代化的校园资源共享平台，帮助学生轻松获取和分享学习资料。
+
+## 主要功能
+
+- 资源浏览、搜索和筛选
+- 管理员登录验证系统
+- 资源上传、编辑和删除
+- PDF预览功能
+- 收藏功能
+- 响应式设计，支持各种设备
+
+## 技术栈
+
+- React
+- TypeScript
+- Tailwind CSS
+- Vite
