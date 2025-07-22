@@ -1,169 +1,140 @@
 import React, { useState } from 'react';
-import { X, Lock, User, Eye, EyeOff } from 'lucide-react';
+import { X, Eye, EyeOff, Lock } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { toast } from 'sonner';
 
-interface LoginModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
-  const { loginAdmin } = useStore();
-  const [username, setUsername] = useState('');
+const LoginModal: React.FC = () => {
+  const { admin, toggleLoginModal, setAdminMode } = useStore();
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 处理表单提交
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    // 模拟登录延迟
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    if (username === 'AnxForever' && password === 'foryou123') {
-      loginAdmin();
-      onClose();
-      setUsername('');
-      setPassword('');
-    } else {
-      setError('账号或密码错误，请重试');
-    }
-    
-    setIsLoading(false);
+    // 模拟API请求延迟
+    setTimeout(() => {
+      // 检查密码是否正确
+      if (password === admin.password) {
+        setAdminMode(true);
+        toggleLoginModal(false);
+        toast.success('管理员登录成功');
+      } else {
+        setError('密码错误，请重试');
+      }
+      setIsLoading(false);
+    }, 800);
   };
 
-  const handleClose = () => {
-    setUsername('');
-    setPassword('');
-    setError('');
-    setShowPassword(false);
-    onClose();
+  // 处理取消按钮
+  const handleCancel = () => {
+    toggleLoginModal(false);
   };
 
-  if (!isOpen) return null;
+  // 处理密码输入变化
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    if (error) setError('');
+  };
+
+  // 切换密码显示/隐藏
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
 
   return (
-    <>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* 背景遮罩 */}
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
-          {/* 头部 */}
-          <div className="flex items-center justify-between p-6 border-b border-neutral-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center">
-                <Lock className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-neutral-800">管理员登录</h2>
-                <p className="text-sm text-neutral-500">请输入管理员凭据</p>
-              </div>
-            </div>
-            <button
-              onClick={handleClose}
-              className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel}></div>
+      
+      {/* 模态框 */}
+      <div className="relative w-full max-w-md p-6 bg-white rounded-2xl shadow-2xl transform transition-all animate-fade-in-up">
+        {/* 装饰性背景 */}
+        <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-purple-400/30 to-pink-400/30 rounded-full blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-gradient-to-tr from-blue-400/30 to-purple-400/30 rounded-full blur-3xl" />
+        </div>
+        
+        {/* 内容区域 */}
+        <div className="relative z-10">
+          {/* 标题和关闭按钮 */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              管理员登录
+            </h2>
+            <button 
+              onClick={handleCancel}
+              className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
-
-          {/* 表单内容 */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {/* 错误提示 */}
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            )}
-
-            {/* 账号输入 */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-neutral-700">
-                管理员账号
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="w-5 h-5 text-neutral-400" />
+          
+          {/* 登录表单 */}
+          <form onSubmit={handleSubmit}>
+            <div className="mb-6">
+              <div className="flex items-center justify-center mb-6">
+                <div className="p-4 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg">
+                  <Lock className="w-8 h-8 text-white" />
                 </div>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
-                  placeholder="请输入管理员账号"
-                  required
-                  disabled={isLoading}
-                />
               </div>
-            </div>
-
-            {/* 密码输入 */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-neutral-700">
-                管理员密码
-              </label>
+              
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="w-5 h-5 text-neutral-400" />
+                <div className="flex">
+                  <div className="relative flex-1">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={handlePasswordChange}
+                      placeholder="请输入管理员密码"
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={togglePasswordVisibility}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
                 </div>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
-                  placeholder="请输入管理员密码"
-                  required
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600 transition-colors"
-                  disabled={isLoading}
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+                
+                {error && (
+                  <p className="mt-2 text-sm text-red-600">{error}</p>
+                )}
+                
+                <p className="mt-3 text-sm text-gray-500">
+                  提示：默认管理员密码为 <span className="font-medium text-purple-600">admin123</span>
+                </p>
               </div>
             </div>
-
-            {/* 提示信息 */}
-            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-              <p className="text-xs text-purple-600">
-                💡 只有拥有管理员权限的用户才能访问资源上传和管理功能
-              </p>
-            </div>
-
-            {/* 按钮组 */}
-            <div className="flex gap-3 pt-2">
+            
+            {/* 按钮区域 */}
+            <div className="flex gap-3">
               <button
                 type="button"
-                onClick={handleClose}
-                className="flex-1 px-4 py-3 text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors font-medium"
-                disabled={isLoading}
+                onClick={handleCancel}
+                className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
               >
                 取消
               </button>
               <button
                 type="submit"
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading || !username || !password}
+                disabled={isLoading}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg text-white font-medium hover:from-purple-700 hover:to-blue-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isLoading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>登录中...</span>
-                  </div>
-                ) : (
-                  '登录'
-                )}
+                {isLoading ? '登录中...' : '登录'}
               </button>
             </div>
           </form>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
