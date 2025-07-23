@@ -1,95 +1,59 @@
-// 管理员状态类型
+export interface MaterialItem {
+  id: string;
+  contentType: 'Paper' | 'Code';
+  materialType: string;
+  courseName: string;
+  year: string;
+  semester: string;
+  teacher: string;
+  description: string;
+  fileUrl: string;
+  downloadCount: number;
+  // Paper specific fields
+  examType?: string;
+  filePath?: string;
+  thumbnailPath?: string;
+  // Code specific fields
+  repoUrl?: string;
+  language?: string;
+  stars?: number;
+  // Metadata
+  createdAt: string;
+  updatedAt: string;
+  uploadedBy?: string;
+  uploadDate?: string;
+  downloads?: number;
+  views?: number;
+  favorites?: number;
+}
+
+export interface Filters {
+  searchQuery: string;
+  materialType: string;
+  teacher: string;
+  year: string;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+}
+
 export interface AdminState {
   isAdminMode: boolean;
-  token: string | null;
-  username: string | null;
+  isEditModalOpen: boolean;
+  isUploadModalOpen: boolean;
+  isLoginModalOpen: boolean;
+  editingMaterial: MaterialItem | null;
+  uploadProgress: number;
 }
 
-// 资料类型
-export interface Material {
-  id: string;
-  title: string;
+export interface UploadFormData {
+  contentType: 'Paper' | 'Code';
+  courseName: string;
+  year: number;
+  semester: string;
+  teacher: string;
   description: string;
-  materialType: 'exam' | 'code' | 'note' | 'other';
-  courseType: CourseType;
-  teacher?: string;
-  year?: string;
-  semester?: 'spring' | 'fall' | 'summer' | 'winter';
-  programmingLanguage?: ProgrammingLanguage;
+  examType?: string;
   repoUrl?: string;
-  uploadDate: string;
-  views: number;
-  downloads: number;
-  favorites: number;
-  rating: number;
-  isStarred: boolean;
-  isFavorited: boolean;
-}
-
-// 资料表单数据类型（用于创建/更新资料）
-export interface MaterialFormData {
-  title: string;
-  description: string;
-  materialType: 'exam' | 'code' | 'note' | 'other';
-  courseType: CourseType;
-  teacher?: string;
-  year?: string;
-  semester?: 'spring' | 'fall' | 'summer' | 'winter';
-  programmingLanguage?: ProgrammingLanguage;
-  repoUrl?: string;
-}
-
-// 课程类型
-export type CourseType = 
-  | 'dataStructure' 
-  | 'algorithms' 
-  | 'computerNetworks' 
-  | 'operatingSystems' 
-  | 'databaseSystems' 
-  | 'compilers' 
-  | 'computerArchitecture' 
-  | 'softwareEngineering' 
-  | 'artificialIntelligence' 
-  | 'machineLearning' 
-  | 'distributedSystems' 
-  | 'computerGraphics' 
-  | 'other';
-
-// 编程语言类型
-export type ProgrammingLanguage = 
-  | 'c' 
-  | 'cpp' 
-  | 'java' 
-  | 'python' 
-  | 'javascript' 
-  | 'typescript' 
-  | 'go' 
-  | 'rust' 
-  | 'other';
-
-// 筛选状态
-export interface FilterState {
-  materialType: string | null;
-  courseType: string | null;
-  programmingLanguage: string | null;
-  year: string | null;
-  semester: string | null;
-  teacher: string | null;
-}
-
-// 排序选项
-export type SortOption = 
-  | 'uploadDate' 
-  | 'views' 
-  | 'downloads' 
-  | 'favorites' 
-  | 'rating';
-
-// 排序方向
-export type SortDirection = 'asc' | 'desc';
-
-// 排序状态
-export interface SortState {
-  option: SortOption;
-  direction: SortDirection;
+  language?: string;
+  file?: File;
 }
