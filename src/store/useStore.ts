@@ -30,14 +30,17 @@ interface AppState {
   toggleFavorite: (materialId: string) => void;
   
   // Admin Actions
-  toggleAdminMode: () => void;
+  openLoginModal: () => void;
+  closeLoginModal: () => void;
+  loginAdmin: () => void;
+  logoutAdmin: () => void;
   openEditModal: (material: MaterialItem) => void;
   closeEditModal: () => void;
   openUploadModal: () => void;
   closeUploadModal: () => void;
   updateMaterial: (id: string, updates: Partial<MaterialItem>) => void;
   addMaterial: (material: MaterialItem) => void;
-  deleteMaterial: (id: string) => void;
+  deleteMaterial: (id: string) => boolean;
   setUploadProgress: (progress: number) => void;
 }
 

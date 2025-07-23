@@ -43,7 +43,6 @@ interface Recommendation {
 }
 
 const LearningAnalytics: React.FC = () => {
-  const { user } = useStore();
   const [isVisible, setIsVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState('week');

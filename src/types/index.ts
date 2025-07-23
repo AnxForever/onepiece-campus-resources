@@ -40,6 +40,7 @@ export interface AdminState {
   isAdminMode: boolean;
   isEditModalOpen: boolean;
   isUploadModalOpen: boolean;
+  isLoginModalOpen: boolean;
   editingMaterial: MaterialItem | null;
   uploadProgress: number;
 }

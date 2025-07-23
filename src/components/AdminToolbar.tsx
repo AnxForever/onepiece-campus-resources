@@ -3,14 +3,14 @@ import { Settings, Upload, Shield, ShieldOff } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 const AdminToolbar: React.FC = () => {
-  const { admin, toggleAdminMode, openUploadModal } = useStore();
+  const { admin, loginAdmin, logoutAdmin, openUploadModal } = useStore();
 
   return (
     <div className="fixed top-4 right-4 z-50">
       <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-lg p-2 border border-purple-200/30">
         {/* 管理员模式切换 */}
         <button
-          onClick={toggleAdminMode}
+          onClick={admin.isAdminMode ? logoutAdmin : loginAdmin}
           className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
             admin.isAdminMode
               ? 'bg-purple-500 text-white shadow-lg'

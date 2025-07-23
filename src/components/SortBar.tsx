@@ -23,7 +23,7 @@ const SortBar: React.FC = () => {
 
   const handleSortChange = (sortKey: string) => {
     let newSortBy = sortKey;
-    let newSortOrder = 'desc';
+    let newSortOrder: 'asc' | 'desc' = 'desc';
 
     // 处理特殊排序逻辑
     if (sortKey === 'oldest') {
